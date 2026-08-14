@@ -1,0 +1,19 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+# Nunca subir claves. La anon key es pública y va como secret de Actions
+# igualmente, para no tener que editar el repo si se rota.
+.env
+.env.*
+!.env.example
+
+.DS_Store
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# Boletos reales escaneados o exportados: son datos de compañeros.
+/boletos-privados/

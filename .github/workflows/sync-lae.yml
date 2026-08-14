@@ -1,0 +1,60 @@
+name: Sincronizar con Loterías (LAE)
+
+# Por qué esto vive en GitHub Actions y no en una Edge Function de Supabase:
+# loteriasyapuestas.es está detrás de Akamai y devuelve 403 a cualquier cliente
+# HTTP que no sea un navegador de verdad — comprobado con cabeceras completas de
+# Chrome. Tampoco manda CORS, así que el navegador del admin tampoco puede
+# llamarlo desde la app. La única vía fiable es un Chromium real, y aquí sale
+# gratis. Ver docs/lae.md.
+
+on:
+  schedule:
+    # Domingos y lunes por la tarde/noche, que es cuando LAE publica el
+    # escrutinio. El cron de Actions tiene retrasos de cola de varios minutos:
+    # da igual, los signos ya no cambian cuando se publican.
+    - cron: '0 20,21,22,23 * * 0'
+    - cron: '0 0,8 * * 1'
+    # Miércoles, para recoger los plazos (apertura/cierre) de la jornada nueva.
+    - cron: '0 9 * * 3'
+  workflow_dispatch:
+    inputs:
+      desde:
+        description: 'Fecha inicio AAAAMMDD (para recargar histórico)'
+        required: false
+      hasta:
+        description: 'Fecha fin AAAAMMDD'
+        required: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Sincronizar
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LAE_DESDE: ${{ inputs.desde }}
+          LAE_HASTA: ${{ inputs.hasta }}
+        run: npm run sync:lae
+
+      - name: Guardar diagnóstico si falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lae-debug
+          path: |
+            lae-debug/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,0 +1,226 @@
+/* ==========================================================================
+   Sistema visual. Mobile-first: media oficina lo va a mirar desde el móvil
+   el domingo por la tarde, así que el layout base es el estrecho y el ancho
+   es la mejora.
+   ========================================================================== */
+
+:root {
+  --fondo:        #0b1120;
+  --superficie:   #131c31;
+  --superficie-2: #1b2540;
+  --borde:        #27324f;
+  --texto:        #e8edf7;
+  --texto-suave:  #93a1bd;
+  --acento:       #38bdf8;
+  --acento-2:     #22d3ee;
+  --verde:        #34d399;
+  --ambar:        #fbbf24;
+  --rojo:         #f87171;
+  --oro:          #fcd34d;
+  --plata:        #cbd5e1;
+  --bronce:       #d8a06a;
+  --radio:        14px;
+  --sombra:       0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+  --ancho:        1100px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --fondo:        #f6f8fc;
+    --superficie:   #ffffff;
+    --superficie-2: #eef2f9;
+    --borde:        #dde4f0;
+    --texto:        #10182b;
+    --texto-suave:  #5b6883;
+    --acento:       #0284c7;
+    --acento-2:     #0891b2;
+    --verde:        #059669;
+    --ambar:        #b45309;
+    --rojo:         #dc2626;
+    --sombra:       0 1px 2px rgba(16,24,43,.06), 0 8px 24px rgba(16,24,43,.06);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -.02em; }
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.15rem; }
+h3 { font-size: .95rem; }
+
+/* --- Estructura ---------------------------------------------------------- */
+.app { min-height: 100%; display: flex; flex-direction: column; }
+
+.cabecera {
+  position: sticky; top: 0; z-index: 20;
+  background: color-mix(in srgb, var(--fondo) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--borde);
+}
+.cabecera-fila {
+  max-width: var(--ancho); margin: 0 auto;
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+}
+.marca { display: flex; align-items: center; gap: 9px; font-weight: 750; letter-spacing: -.03em; }
+.marca svg { color: var(--acento); }
+
+.nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.nav::-webkit-scrollbar { display: none; }
+.nav a {
+  padding: 7px 13px; border-radius: 999px; white-space: nowrap;
+  color: var(--texto-suave); font-weight: 600; font-size: .88rem;
+  transition: background .15s, color .15s;
+}
+.nav a:hover { background: var(--superficie-2); color: var(--texto); }
+.nav a.activo { background: var(--acento); color: var(--fondo); }
+
+.contenido { flex: 1; max-width: var(--ancho); width: 100%; margin: 0 auto; padding: 20px 16px 64px; }
+
+.pie {
+  border-top: 1px solid var(--borde); padding: 18px 16px;
+  color: var(--texto-suave); font-size: .8rem; text-align: center;
+}
+
+/* --- Piezas -------------------------------------------------------------- */
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  padding: 16px;
+}
+
+.rejilla { display: grid; gap: 14px; }
+.rejilla.c2 { grid-template-columns: 1fr; }
+.rejilla.c3 { grid-template-columns: 1fr; }
+.rejilla.c4 { grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 720px) {
+  .rejilla.c2 { grid-template-columns: repeat(2, 1fr); }
+  .rejilla.c3 { grid-template-columns: repeat(3, 1fr); }
+  .rejilla.c4 { grid-template-columns: repeat(4, 1fr); }
+}
+
+.dato .etiqueta { color: var(--texto-suave); font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+.dato .valor { font-size: 1.7rem; font-weight: 780; letter-spacing: -.03em; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.dato .nota { color: var(--texto-suave); font-size: .8rem; }
+
+.encabezado-seccion {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; margin: 26px 0 12px;
+}
+.encabezado-seccion p { margin: 2px 0 0; color: var(--texto-suave); font-size: .85rem; }
+
+/* --- Tablas: en móvil se desplazan solas, nunca empujan la página --------- */
+.tabla-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th {
+  text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--texto-suave); font-weight: 700; padding: 8px 10px; white-space: nowrap;
+  border-bottom: 1px solid var(--borde);
+}
+td { padding: 10px; border-bottom: 1px solid var(--borde); }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr.yo { background: color-mix(in srgb, var(--acento) 12%, transparent); }
+.num { text-align: right; }
+
+.puesto {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 8px;
+  background: var(--superficie-2); font-weight: 750; font-size: .82rem;
+}
+.puesto.p1 { background: var(--oro);   color: #422006; }
+.puesto.p2 { background: var(--plata); color: #1e293b; }
+.puesto.p3 { background: var(--bronce); color: #3b2408; }
+
+.persona { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex: none;
+  display: grid; place-items: center;
+  font-size: .72rem; font-weight: 750; color: var(--fondo);
+  background: linear-gradient(135deg, var(--acento), var(--acento-2));
+}
+.persona span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --- Signos 1 X 2 -------------------------------------------------------- */
+.signo {
+  display: inline-grid; place-items: center;
+  width: 26px; height: 26px; border-radius: 7px;
+  font-weight: 750; font-size: .8rem;
+  background: var(--superficie-2); color: var(--texto-suave);
+  border: 1px solid var(--borde);
+}
+.signo.acierto { background: var(--verde); color: #04231a; border-color: transparent; }
+.signo.fallo   { background: color-mix(in srgb, var(--rojo) 20%, transparent); color: var(--rojo); border-color: color-mix(in srgb, var(--rojo) 35%, transparent); }
+.signo.vacio   { opacity: .4; }
+.tira-signos { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.insignia {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 999px;
+  font-size: .74rem; font-weight: 700;
+  background: var(--superficie-2); color: var(--texto-suave);
+}
+.insignia.viva   { background: color-mix(in srgb, var(--rojo) 18%, transparent); color: var(--rojo); }
+.insignia.ok     { background: color-mix(in srgb, var(--verde) 18%, transparent); color: var(--verde); }
+.insignia.aviso  { background: color-mix(in srgb, var(--ambar) 18%, transparent); color: var(--ambar); }
+
+.punto-vivo {
+  width: 7px; height: 7px; border-radius: 50%; background: currentColor;
+  animation: latido 1.4s ease-in-out infinite;
+}
+@keyframes latido { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .punto-vivo { animation: none; } }
+
+.dinero.positivo { color: var(--verde); }
+.dinero.negativo { color: var(--rojo); }
+
+/* --- Controles ----------------------------------------------------------- */
+button, .boton {
+  font: inherit; font-weight: 650;
+  padding: 9px 15px; border-radius: 10px;
+  border: 1px solid var(--borde); background: var(--superficie-2); color: var(--texto);
+  cursor: pointer; transition: filter .15s, background .15s;
+}
+button:hover:not(:disabled), .boton:hover { filter: brightness(1.15); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button.principal { background: var(--acento); color: var(--fondo); border-color: transparent; }
+
+select, input {
+  font: inherit; padding: 8px 11px; border-radius: 10px;
+  border: 1px solid var(--borde); background: var(--superficie-2); color: var(--texto);
+}
+
+.aviso {
+  border-radius: var(--radio); padding: 13px 15px;
+  border: 1px solid color-mix(in srgb, var(--ambar) 40%, transparent);
+  background: color-mix(in srgb, var(--ambar) 10%, transparent);
+  font-size: .88rem;
+}
+.aviso strong { color: var(--ambar); }
+
+.vacio { text-align: center; padding: 44px 16px; color: var(--texto-suave); }
+
+.cargando { display: grid; gap: 10px; }
+.esqueleto {
+  height: 48px; border-radius: var(--radio);
+  background: linear-gradient(90deg, var(--superficie) 25%, var(--superficie-2) 37%, var(--superficie) 63%);
+  background-size: 400% 100%;
+  animation: brillo 1.3s ease infinite;
+}
+@keyframes brillo { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .esqueleto { animation: none; } }

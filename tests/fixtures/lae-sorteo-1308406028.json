@@ -1,0 +1,25 @@
+{
+  "_comentario": "Respuesta real de buscadorSorteos capturada el 2026-08-14. Jornada 28 de 2026. No editar a mano: si LAE cambia el formato, recapturar y ver qué tests se rompen.",
+  "id_sorteo": "1308406028",
+  "numero": 28,
+  "fecha_sorteo": "2026-04-26 22:59:00",
+  "premio_bote": "5000000",
+  "combinacion": "X - 1 - 2 - 1 - 1 - X - 2 - 1 - 1 - X - 2 - 2 - 1 - X - 00",
+  "partidos": [
+    { "posicion": 1,  "idLocal": 11,   "local": "Betis",          "idVisitante": 12,   "visitante": "Real Madrid",      "signo": "X ",  "marcador": "1 - 1", "fecha_completa": "2026-04-24 21:00:00" },
+    { "posicion": 2,  "idLocal": 374,  "local": "Alavés",         "idVisitante": 10,   "visitante": "Mallorca",         "signo": "1 ",  "marcador": "2 - 1", "fecha_completa": "2026-04-25 14:00:00" },
+    { "posicion": 3,  "idLocal": 5,    "local": "Getafe",         "idVisitante": 4,    "visitante": "Barcelona",        "signo": "2 ",  "marcador": "0 - 2", "fecha_completa": "2026-04-25 16:15:00" },
+    { "posicion": 4,  "idLocal": 19,   "local": "Valencia",       "idVisitante": 166,  "visitante": "Girona",           "signo": "1 ",  "marcador": "2 - 1", "fecha_completa": "2026-04-25 18:30:00" },
+    { "posicion": 5,  "idLocal": 3,    "local": "At. Madrid",     "idVisitante": 1,    "visitante": "Athletic Club",    "signo": "1 ",  "marcador": "3 - 2", "fecha_completa": "2026-04-25 21:00:00" },
+    { "posicion": 6,  "idLocal": 156,  "local": "Rayo Vallecano", "idVisitante": 125,  "visitante": "Real Sociedad",    "signo": "X ",  "marcador": "3 - 3", "fecha_completa": "2026-04-26 14:00:00" },
+    { "posicion": 7,  "idLocal": 1000, "local": "R. Oviedo",      "idVisitante": 131,  "visitante": "Elche",            "signo": "2 ",  "marcador": "1 - 2", "fecha_completa": "2026-04-26 16:15:00" },
+    { "posicion": 8,  "idLocal": 2,    "local": "Osasuna",        "idVisitante": 17,   "visitante": "Sevilla",          "signo": "1 ",  "marcador": "2 - 1", "fecha_completa": "2026-04-26 18:30:00" },
+    { "posicion": 9,  "idLocal": 20,   "local": "Villarreal",     "idVisitante": 111,  "visitante": "Celta",            "signo": "1 ",  "marcador": "2 - 1", "fecha_completa": "2026-04-26 21:00:00" },
+    { "posicion": 10, "idLocal": 939,  "local": "Burgos",         "idVisitante": 7,    "visitante": "Deportivo",        "signo": "X ",  "marcador": "1 - 1", "fecha_completa": "2026-04-25 18:30:00" },
+    { "posicion": 11, "idLocal": 113,  "local": "Málaga",         "idVisitante": 130,  "visitante": "Castellón",        "signo": "2 ",  "marcador": "2 - 3", "fecha_completa": "2026-04-25 21:00:00" },
+    { "posicion": 12, "idLocal": 564,  "local": "Granada",        "idVisitante": 18,   "visitante": "Almería",          "signo": "2 ",  "marcador": "2 - 4", "fecha_completa": "2026-04-26 16:15:00" },
+    { "posicion": 13, "idLocal": 200,  "local": "Huesca",         "idVisitante": 3017, "visitante": "R. Zaragoza",      "signo": "1 ",  "marcador": "1 - 0", "fecha_completa": "2026-04-26 18:30:00" },
+    { "posicion": 14, "idLocal": 836,  "local": "Ceuta",          "idVisitante": 3960, "visitante": "Racing Santander", "signo": "X ",  "marcador": "0 - 0", "fecha_completa": "2026-04-26 21:00:00" },
+    { "posicion": 15, "idLocal": 9,    "local": "Espanyol",       "idVisitante": 6,    "visitante": "Levante",          "signo": "0-0", "marcador": "0 - 0", "fecha_completa": "2026-04-27 21:00:00" }
+  ]
+}
