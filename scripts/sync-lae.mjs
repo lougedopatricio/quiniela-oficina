@@ -18,7 +18,7 @@
 import { chromium } from 'playwright'
 import { createClient } from '@supabase/supabase-js'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { normalizarSorteo, normalizarProximo, URLS, comoAAAAMMDD } from './lae.mjs'
+import { normalizarSorteo, normalizarProximo, URLS, comoAAAAMMDD, esFinDeSemana } from './lae.mjs'
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, LAE_DESDE, LAE_HASTA } = process.env
 
@@ -66,7 +66,10 @@ async function descargarDeLae() {
 
     // LAE devuelve un string con un mensaje cuando no hay resultados.
     const celebrados = Array.isArray(datos.celebrados.ok) ? datos.celebrados.ok : []
-    const proximos   = Array.isArray(datos.proximos.ok)   ? datos.proximos.ok   : []
+    // `proximos` ahora pide TODOS los productos de LAE (ver URLS.proximos en
+    // lae.mjs), así que hay que quedarse solo con la Quiniela.
+    const proximos = (Array.isArray(datos.proximos.ok) ? datos.proximos.ok : [])
+      .filter(p => p.game_id === 'LAQU')
     return { celebrados, proximos }
   } catch (e) {
     // Si Akamai endurece la detección algún día, esto es lo que dirá por qué.
@@ -127,6 +130,16 @@ async function main() {
   // ---------------------------------------------------------------------
   for (const crudo of celebrados) {
     const s = normalizarSorteo(crudo)
+
+    // La oficina solo juega la jornada de Liga de fin de semana, nunca las
+    // intersemanales de Champions/Europa (entre semana). Ni se crea la
+    // jornada: así nunca aparece en el panel para confundir a nadie.
+    if (!esFinDeSemana(s.fecha_sorteo)) {
+      log(`Sorteo de LAE jornada ${s.lae_jornada} cae entre semana (probable intersemanal); se ignora.`)
+      resumen.push({ lae_jornada: s.lae_jornada, omitida: 'intersemanal' })
+      continue
+    }
+
     const { round, creada } = await jornadaPara(season.id, s.lae_id_sorteo, s.lae_jornada)
 
     // Una jornada especial no tiene por qué tener TODOS los partidos
@@ -181,6 +194,11 @@ async function main() {
   // ---------------------------------------------------------------------
   for (const crudo of proximos) {
     const p = normalizarProximo(crudo)
+
+    if (!esFinDeSemana(p.fecha_sorteo)) {
+      log(`Próximo sorteo de LAE jornada ${p.lae_jornada} cae entre semana (probable intersemanal); se ignora.`)
+      continue
+    }
     if (!p.abre_at && !p.cierra_at) continue   // LAE aún no ha publicado plazos
 
     const { round } = await jornadaPara(season.id, p.lae_id_sorteo, p.lae_jornada)

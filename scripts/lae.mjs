@@ -97,8 +97,25 @@ export const URLS = {
   celebrados: (desde, hasta) =>
     `https://www.loteriasyapuestas.es/servicios/buscadorSorteos?game_id=LAQU&celebrados=true` +
     `&fechaInicioInclusiva=${desde}&fechaFinInclusiva=${hasta}`,
+  // `game_id=LAQU` en este endpoint concreto empezó a dar 406 el 2026-08-16,
+  // de forma repetida y reproducible (no un simple bloqueo pasajero de
+  // Akamai). `game_id=TODOS` sí funciona siempre; devuelve todos los
+  // productos de LAE mezclados y hay que filtrar `game_id === 'LAQU'` a mano
+  // en quien consuma la respuesta.
   proximos: (n = 3) =>
-    `https://www.loteriasyapuestas.es/servicios/proximosv3?game_id=LAQU&num=${n}`,
+    `https://www.loteriasyapuestas.es/servicios/proximosv3?game_id=TODOS&num=${n}`,
+}
+
+/**
+ * true si la fecha cae en sábado o domingo. Las jornadas normales de Liga se
+ * juegan en fin de semana; las quinielas intersemanales de Champions/Europa
+ * caen en día laborable. Esta app solo sigue la jornada de Liga, así que
+ * cualquier sorteo entre semana se descarta antes de crear nada.
+ */
+export function esFinDeSemana(fechaIso) {
+  if (!fechaIso) return true   // sin fecha todavía: se deja pasar y se filtra cuando LAE la publique
+  const dia = new Date(fechaIso).getUTCDay()
+  return dia === 0 || dia === 6
 }
 
 /** `AAAAMMDD`, que es el formato que espera el buscador de LAE. */

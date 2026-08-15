@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { normalizarSorteo, normalizarProximo, limpiarSigno, parsearMarcador, fechaMadrid } from '../scripts/lae.mjs'
+import { normalizarSorteo, normalizarProximo, limpiarSigno, parsearMarcador, fechaMadrid, esFinDeSemana, URLS } from '../scripts/lae.mjs'
 
 const aquí = dirname(fileURLToPath(import.meta.url))
 const sorteoReal = JSON.parse(await readFile(join(aquí, 'fixtures', 'lae-sorteo-1308406028.json'), 'utf8'))
@@ -99,4 +99,24 @@ test('una jornada futura sin plazos publicados no inventa fechas', () => {
   })
   assert.equal(p.abre_at, null)
   assert.equal(p.cierra_at, null)
+})
+
+test('proximosv3 pide TODOS los productos, no solo LAQU', () => {
+  // game_id=LAQU en este endpoint concreto empezó a dar 406 el 2026-08-16,
+  // de forma repetida. game_id=TODOS es la única vía que funciona; quien
+  // consuma la respuesta tiene que filtrar game_id === 'LAQU' a mano.
+  assert.match(URLS.proximos(3), /game_id=TODOS/)
+  assert.doesNotMatch(URLS.proximos(3), /game_id=LAQU/)
+})
+
+test('fin de semana distingue la jornada de Liga de las intersemanales', () => {
+  // Domingo 23 de agosto de 2026: jornada de Liga normal.
+  assert.equal(esFinDeSemana('2026-08-23T17:00:00.000Z'), true)
+  // Sábado también cuenta.
+  assert.equal(esFinDeSemana('2026-08-22T17:00:00.000Z'), true)
+  // Miércoles: entre semana, típico de una jornada intersemanal de Champions.
+  assert.equal(esFinDeSemana('2026-08-19T17:00:00.000Z'), false)
+  // Sin fecha todavía (LAE no ha publicado el sorteo): se deja pasar, se
+  // filtrará en cuanto haya fecha.
+  assert.equal(esFinDeSemana(null), true)
 })
