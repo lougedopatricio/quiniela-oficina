@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Plus, Trash2, RefreshCw } from 'lucide-react'
+import { Plus, Trash2, RefreshCw, Download } from 'lucide-react'
 import {
   getTemporada, getJornadas, getJornada, crearJornada, actualizarJornada,
-  borrarJornada, guardarPartidos, recalcularJornada,
+  borrarJornada, guardarPartidos, recalcularJornada, sincronizarConLae,
 } from '../../lib/api.js'
 import { useAsync, Cargando, AvisoError, Portada, Seccion, Vacio } from '../../components/ui.jsx'
 import { euros, fechaCorta } from '../../lib/formato.js'
@@ -13,6 +13,7 @@ export default function JornadasAdmin() {
   const [recarga, setRecarga] = useState(0)
   const [abierta, setAbierta] = useState(null)   // id de la jornada desplegada
   const [aviso, setAviso] = useState(null)
+  const [sincronizando, setSincronizando] = useState(false)
 
   const { cargando, error, datos } = useAsync(async () => {
     const season = await getTemporada()
@@ -35,6 +36,17 @@ export default function JornadasAdmin() {
       setAviso({ tipo: 'ok', txt: `Jornada ${siguiente} creada con sus 15 huecos de partido.` })
       refrescar()
     } catch (e) { fallo(e) }
+  }
+
+  async function sincronizar() {
+    setSincronizando(true)
+    try {
+      await sincronizarConLae()
+      setAviso({
+        tipo: 'ok',
+        txt: 'Sincronización solicitada. Tarda uno o dos minutos en terminar — vuelve a esta pantalla luego, o mira el progreso en GitHub → Actions.',
+      })
+    } catch (e) { fallo(e) } finally { setSincronizando(false) }
   }
 
   async function cambiarEstado(j, estado) {
@@ -65,7 +77,13 @@ export default function JornadasAdmin() {
         antetitulo="Redacción"
         titular="Las jornadas y sus resultados"
         entradilla="Aquí se crean jornadas a mano, se corrigen signos que hayan entrado mal y se vuelve a repartir. El recálculo es idempotente: puedes lanzarlo las veces que haga falta sin que se dupliquen cuotas ni premios."
-      />
+      >
+        <button onClick={sincronizar} disabled={sincronizando} style={{ marginTop: 4 }}
+                title="Vuelve a pedirle a LAE los partidos y resultados ahora mismo, sin esperar al cron automático">
+          <Download size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+          {sincronizando ? 'Pidiendo la sincronización…' : 'Sincronizar con LAE ahora'}
+        </button>
+      </Portada>
 
       {aviso && <div className="aviso" style={{ marginTop: 20 }}>{aviso.txt}</div>}
 

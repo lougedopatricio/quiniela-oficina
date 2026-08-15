@@ -340,6 +340,18 @@ export async function borrarJornada(id) {
   if (error) throw new Error(error.message)
 }
 
+/**
+ * Pide a GitHub Actions que sincronice con LAE ahora mismo, en vez de esperar
+ * al cron. El token de GitHub nunca toca el navegador: vive cifrado en Vault
+ * y es la propia base la que llama por su cuenta (ver 0011).
+ */
+export async function sincronizarConLae() {
+  if (MODO_DEMO) throw new Error('El modo demo no puede lanzar la sincronización.')
+  const { data, error } = await supabase.rpc('disparar_sync_lae')
+  if (error) throw new Error(error.message)
+  return data
+}
+
 /** Guarda equipos, marcadores y signos de una jornada de una sentada. */
 export async function guardarPartidos(partidos) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
