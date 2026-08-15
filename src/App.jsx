@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import Clasificacion from './pages/Clasificacion.jsx'
 import Jornadas from './pages/Jornadas.jsx'
@@ -8,7 +8,7 @@ import Bote from './pages/Bote.jsx'
 import Saldos from './pages/Saldos.jsx'
 import Entrar from './pages/Entrar.jsx'
 import { MODO_DEMO } from './lib/supabase.js'
-import { useSesion, salir } from './lib/sesion.js'
+import { useSesion, salir, establecerPassword } from './lib/sesion.js'
 import { Cargando } from './components/ui.jsx'
 
 // Toda la trastienda se carga aparte. El importador arrastra SheetJS, que pesa
@@ -40,6 +40,14 @@ export default function App() {
   // con base real, solo al admin. Esto decide qué se ve, no qué se puede hacer:
   // quien fuerce la ruta chocará igual con las policies RLS.
   const verAdmin = MODO_DEMO || sesion.esAdmin
+
+  // Al pulsar "he olvidado mi contraseña" desde el correo, Supabase crea la
+  // sesión sola y avisa con este evento. Se tapa toda la app hasta que se
+  // establece la nueva, en vez de intentar llevar a una ruta concreta: el
+  // enlace de recuperación usa el fragmento de la URL para sus propios
+  // tokens, el mismo sitio que HashRouter usa para las rutas, y forzar una
+  // convivencia entre los dos es más frágil que evitarla del todo.
+  if (sesion.recuperando) return <PantallaRecuperacion />
 
   return (
     <div className="app">
@@ -111,6 +119,58 @@ export default function App() {
           <span>Resultados oficiales de Loterías y Apuestas del Estado</span>
         </div>
       </footer>
+    </div>
+  )
+}
+
+/** Se muestra sola, tapando toda la app, tras pulsar el enlace de recuperación. */
+function PantallaRecuperacion() {
+  const [password, setPassword] = useState('')
+  const [repite, setRepite] = useState('')
+  const [estado, setEstado] = useState(null)
+
+  async function guardar(e) {
+    e.preventDefault()
+    if (password.length < 6) {
+      return setEstado({ tipo: 'error', txt: 'La contraseña tiene que tener al menos 6 caracteres.' })
+    }
+    if (password !== repite) {
+      return setEstado({ tipo: 'error', txt: 'Las dos contraseñas no coinciden.' })
+    }
+    setEstado({ tipo: 'trabajando', txt: 'Guardando…' })
+    try {
+      await establecerPassword(password)
+      // Recarga limpia: vuelve a arrancar la sesión desde cero, ya sin la
+      // bandera de recuperación, y con la contraseña nueva ya funcionando.
+      window.location.href = window.location.origin + window.location.pathname
+    } catch (err) {
+      setEstado({ tipo: 'error', txt: err.message })
+    }
+  }
+
+  return (
+    <div className="app">
+      <main className="contenido" style={{ maxWidth: 460 }}>
+        <div className="titular" style={{ marginTop: 40 }}>Elige tu nueva contraseña</div>
+        <p className="entradilla">Después de guardarla, entra con ella normalmente.</p>
+        <form onSubmit={guardar} style={{ display: 'grid', gap: 14, marginTop: 22 }}>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span className="rotulo">Contraseña nueva</span>
+            <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
+                   autoComplete="new-password" minLength={6} autoFocus />
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span className="rotulo">Repítela</span>
+            <input type="password" required value={repite} onChange={e => setRepite(e.target.value)}
+                   autoComplete="new-password" minLength={6} />
+          </label>
+          <button className="principal" type="submit" disabled={estado?.tipo === 'trabajando'}
+                  style={{ justifySelf: 'start' }}>
+            Guardar y entrar
+          </button>
+        </form>
+        {estado && <div className="aviso" style={{ marginTop: 18 }}>{estado.txt}</div>}
+      </main>
     </div>
   )
 }
