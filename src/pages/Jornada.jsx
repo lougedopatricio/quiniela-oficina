@@ -1,8 +1,12 @@
 ﻿import { useParams, Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { getJornada, suscribirseAJornada } from '../lib/api.js'
-import { useAsync, Cargando, Vacio, AvisoError, Dato, Persona, Puesto, TiraSignos, Dinero } from '../components/ui.jsx'
+import {
+  useAsync, Cargando, Vacio, AvisoError,
+  Portada, Destacado, CifraMenor, Seccion, Persona, Posicion, Ganador, TiraSignos, Dinero,
+} from '../components/ui.jsx'
 import { euros, fechaHora } from '../lib/formato.js'
+import { titularJornada } from '../lib/titulares.js'
 
 export default function Jornada() {
   const { id } = useParams()
@@ -13,7 +17,7 @@ export default function Jornada() {
   // se recoloca sola: nadie tiene que recargar el domingo por la tarde.
   useEffect(() => suscribirseAJornada(id, () => setRefresco(n => n + 1)), [id])
 
-  if (cargando) return <Cargando filas={6} />
+  if (cargando) return <Cargando filas={7} />
   if (error) return <AvisoError error={error} />
   if (!datos) return <Vacio>Esa jornada no existe.</Vacio>
 
@@ -22,9 +26,8 @@ export default function Jornada() {
   const signos = partidos.slice(0, 14).map(m => m.signo ?? m.signo_provisional ?? null)
   const publicados = signos.filter(Boolean).length
 
-  // Mientras la jornada no está liquidada no hay premio repartido, pero sí
-  // hay dinero en juego. Enseñar 0,00 € haría pensar que no se juega nada,
-  // así que se muestra la estimación con las mismas reglas de reparto.
+  // Mientras la jornada no está liquidada no hay premio repartido, pero sí hay
+  // dinero en juego. Enseñar 0,00 € haría pensar que no se juega nada.
   const liquidada = round.estado === 'finalizada'
   const recaudacion = resumen.recaudacion_cents ?? 0
   const premio = liquidada ? (resumen.premio_cents ?? 0) : Math.floor(recaudacion / 2)
@@ -32,121 +35,173 @@ export default function Jornada() {
 
   return (
     <>
-      <div className="encabezado-seccion">
-        <div>
-          <h1>
-            Jornada {round.numero}{' '}
-            {enJuego && <span className="insignia viva"><span className="punto-vivo" />EN JUEGO</span>}
-            {round.es_especial && <span className="insignia" style={{ marginLeft: 6 }}>★ Especial</span>}
-          </h1>
-          <p>
-            {enJuego
-              ? `${publicados} de 14 partidos resueltos · clasificación provisional`
-              : `Cerrada el ${fechaHora(round.cierra_at)}`}
-          </p>
-        </div>
-        <Link to="/jornadas" className="boton">← Todas</Link>
-      </div>
-
-      <div className="rejilla c4">
-        <Dato etiqueta="Boletos" valor={resumen.boletos ?? boletos.length} />
-        <Dato etiqueta="Recaudado" valor={euros(recaudacion)} />
-        <Dato etiqueta="Premio" valor={euros(premio)}
-              nota={liquidada ? '50% al que más acierta' : 'En juego · estimado'} />
-        <Dato etiqueta="Al bote" valor={euros(alBote)} color="var(--oro)"
-              nota={liquidada ? undefined : 'Estimado'} />
-      </div>
+      <Portada
+        antetitulo={
+          <>
+            <Link to="/jornadas" style={{ color: 'var(--rojo)' }}>Jornadas</Link>
+            <span style={{ color: 'var(--tinta-3)' }}>/</span>
+            <span style={{ color: 'var(--tinta-3)' }}>Jornada {round.numero}</span>
+            {round.es_especial && <span className="etiqueta oro">Especial</span>}
+          </>
+        }
+        titular={titularJornada(round, boletos, resumen)}
+        entradilla={
+          enJuego
+            ? `Van ${publicados} de 14 partidos resueltos. Lo que ves es provisional: los signos no son oficiales hasta que Loterías publica el escrutinio.`
+            : `Cerrada el ${fechaHora(round.cierra_at)}. ${boletos.length} boleto${boletos.length === 1 ? '' : 's'} en juego.`
+        }
+      >
+        {!enJuego && (
+          <div className="destacado">
+            <Destacado rotulo="Premio de la jornada" valor={euros(premio)} tono="acento"
+                       nota={boletos.length ? `Para quien más acertó` : 'Sin participantes'} />
+            <Destacado rotulo="Al bote" valor={euros(alBote)} tono="oro"
+                       nota="La otra mitad de lo recaudado" />
+            <Destacado rotulo="Recaudado" valor={euros(recaudacion)}
+                       nota={`${resumen.boletos ?? boletos.length} boletos`} />
+          </div>
+        )}
+      </Portada>
 
       {resumen.bote_pagado_cents > 0 && (
-        <div className="aviso" style={{ marginTop: 16 }}>
-          <strong>¡Pleno de 14!</strong> Se repartió también el bote entero:{' '}
-          {euros(resumen.bote_pagado_cents)}.
+        <div className="aviso" style={{ marginTop: 22 }}>
+          <strong>Cayó el bote.</strong> Alguien clavó los catorce y se llevó también los{' '}
+          {euros(resumen.bote_pagado_cents)} acumulados. El bote arranca de cero.
         </div>
       )}
 
-      <div className="encabezado-seccion"><h2>Los partidos</h2></div>
-      <div className="tarjeta" style={{ padding: 0 }}>
-        <div className="tabla-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th style={{ width: 30 }}>#</th>
-                <th>Partido</th>
-                <th className="num">Marcador</th>
-                <th className="num">Signo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {partidos.map(m => (
-                <tr key={m.orden} style={m.orden === 15 ? { opacity: .55 } : undefined}>
-                  <td style={{ color: 'var(--texto-suave)' }}>{m.orden}</td>
-                  <td>
-                    {m.local} <span style={{ color: 'var(--texto-suave)' }}>–</span> {m.visitante}
-                    {m.orden === 15 && <span className="insignia" style={{ marginLeft: 8 }}>Pleno al 15 · no puntúa</span>}
-                    {m.sustituido_de && <span className="insignia aviso" style={{ marginLeft: 8 }}>★ cambiado</span>}
-                  </td>
-                  <td className="num">
-                    {m.goles_local != null ? `${m.goles_local} – ${m.goles_visitante}` : '—'}
-                  </td>
-                  <td className="num">
-                    {m.orden === 15
-                      ? '—'
-                      : m.signo
-                        ? <span className="signo acierto">{m.signo}</span>
-                        : m.signo_provisional
-                          ? <span className="signo" title="Provisional, aún no oficial">{m.signo_provisional}</span>
-                          : <span className="signo vacio">·</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* ------------------------------------------------------------------
+          MODO DIRECTO. Solo mientras se juega: fondo oscuro, monoespaciada y
+          densidad alta, pensado para verse de lejos en la tele de la oficina.
+          Una vez terminada la jornada vuelve al registro de prensa.
+          ------------------------------------------------------------------ */}
+      {enJuego ? (
+        <div className="directo">
+          <div className="barra">
+            <span>Jornada {round.numero} · clasificación provisional</span>
+            <span className="vivo"><span className="punto-vivo" />EN DIRECTO {String(publicados).padStart(2, '0')}/14</span>
+          </div>
 
-      <div className="encabezado-seccion">
-        <div>
-          <h2>Las columnas</h2>
-          <p>Verde acertado, rojo fallado. Solo se ven una vez cerrado el plazo.</p>
-        </div>
-      </div>
+          <div className="marcadores">
+            <div><div className="rotulo">Boletos</div><div className="valor">{boletos.length}</div></div>
+            <div><div className="rotulo">Recaudado</div><div className="valor">{euros(recaudacion)}</div></div>
+            <div><div className="rotulo">En juego</div><div className="valor lima">{euros(premio)}</div></div>
+            <div><div className="rotulo">Al bote</div><div className="valor">{euros(alBote)}</div></div>
+          </div>
 
-      {boletos.length === 0 ? (
-        <Vacio>Nadie jugó esta jornada.</Vacio>
-      ) : (
-        <div className="tarjeta" style={{ padding: 0 }}>
           <div className="tabla-scroll">
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: 44 }}></th>
-                  <th>Jugador</th>
-                  <th className="num">Aciertos</th>
+                  <th style={{ width: 34 }}></th>
+                  <th>Participante</th>
+                  <th className="num">Ac.</th>
                   <th>Columna</th>
-                  <th className="num">Premio</th>
                 </tr>
               </thead>
               <tbody>
                 {boletos.map((b, i) => (
                   <tr key={b.player_id}>
-                    <td><Puesto n={i + 1} /></td>
-                    <td>
-                      <Link to={`/perfil/${b.player_id}`}><Persona nombre={b.nombre} /></Link>
-                    </td>
-                    <td className="num">
-                      <strong style={{ fontSize: '1.05rem' }}>{b.aciertos}</strong>
-                      {b.es_ganador && ' 🏆'}
-                    </td>
+                    <td><Posicion n={i + 1} /></td>
+                    <td><Persona nombre={b.nombre} mostrarInicial={false} /></td>
+                    <td className="num" style={{ fontSize: 16, fontWeight: 500 }}>{b.aciertos}</td>
                     <td><TiraSignos picks={b.picks} signos={signos} /></td>
-                    <td className="num">
-                      {b.premio_cents ? <Dinero cents={b.premio_cents} conSigno /> : '—'}
-                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
+      ) : (
+        <Seccion titulo="Cómo quedó" nota="Verde acertado, hueco fallado">
+          {boletos.length === 0 ? (
+            <Vacio>Nadie jugó esta jornada.</Vacio>
+          ) : (
+            <div className="tabla-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: 34 }}></th>
+                    <th>Participante</th>
+                    <th className="num">Aciertos</th>
+                    <th>Columna</th>
+                    <th className="num">Premio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {boletos.map((b, i) => (
+                    <tr key={b.player_id} className={i < 3 ? 'podio' : undefined}>
+                      <td><Posicion n={i + 1} /></td>
+                      <td>
+                        <Link to={`/perfil/${b.player_id}`}>
+                          <Persona nombre={b.nombre} />
+                        </Link>
+                      </td>
+                      <td className="num destaca">
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                          {b.es_ganador && <Ganador />}{b.aciertos}
+                        </span>
+                      </td>
+                      <td><TiraSignos picks={b.picks} signos={signos} /></td>
+                      <td className="num">
+                        {b.premio_cents ? <Dinero cents={b.premio_cents} conSigno /> : <span style={{ color: 'var(--tinta-3)' }}>—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Seccion>
+      )}
+
+      <Seccion titulo="Los quince partidos"
+               nota={enJuego ? `${publicados} resueltos` : 'Resultado oficial'}>
+        <div className="tabla-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th style={{ width: 28 }}>Nº</th>
+                <th>Encuentro</th>
+                <th className="num">Resultado</th>
+                <th className="num" style={{ width: 60 }}>Signo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {partidos.map(m => (
+                <tr key={m.orden} style={m.orden === 15 ? { color: 'var(--tinta-3)' } : undefined}>
+                  <td className="posicion">{String(m.orden).padStart(2, '0')}</td>
+                  <td>
+                    <strong style={{ fontWeight: 500 }}>{m.local}</strong>
+                    <span style={{ color: 'var(--tinta-3)', margin: '0 7px' }}>–</span>
+                    <strong style={{ fontWeight: 500 }}>{m.visitante}</strong>
+                    {m.orden === 15 && <span className="etiqueta" style={{ marginLeft: 10 }}>Pleno al 15 · no puntúa</span>}
+                    {m.sustituido_de && <span className="etiqueta oro" style={{ marginLeft: 10 }}>Cambiado</span>}
+                  </td>
+                  <td className="num">
+                    {m.goles_local != null ? `${m.goles_local} – ${m.goles_visitante}` : '—'}
+                  </td>
+                  <td className="num">
+                    {m.orden === 15 ? '—'
+                      : m.signo ? <span className="signo oficial">{m.signo}</span>
+                      : m.signo_provisional ? <span className="signo" title="Provisional">{m.signo_provisional}</span>
+                      : <span className="signo vacio">·</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Seccion>
+
+      {enJuego && (
+        <Seccion titulo="Lo que hay en juego">
+          <div className="cifras-menores">
+            <CifraMenor rotulo="Recaudado" valor={euros(recaudacion)} />
+            <CifraMenor rotulo="Premio estimado" valor={euros(premio)} tono="var(--rojo)" />
+            <CifraMenor rotulo="Irá al bote" valor={euros(alBote)} tono="var(--oro)" />
+          </div>
+        </Seccion>
       )}
     </>
   )

@@ -3,8 +3,12 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { getPerfil } from '../lib/api.js'
 import { MODO_DEMO } from '../lib/supabase.js'
 import { jugadorDemo } from '../lib/demo.js'
-import { useAsync, Cargando, Vacio, AvisoError, Dato, Dinero } from '../components/ui.jsx'
-import { euros, fechaCorta, iniciales } from '../lib/formato.js'
+import {
+  useAsync, Cargando, Vacio, AvisoError,
+  Portada, Destacado, CifraMenor, Seccion, Ganador, Dinero,
+} from '../components/ui.jsx'
+import { euros, fechaCorta, iniciales, decimal } from '../lib/formato.js'
+import { titularPerfil } from '../lib/titulares.js'
 
 export default function Perfil() {
   const { id } = useParams()
@@ -15,8 +19,8 @@ export default function Perfil() {
     [playerId]
   )
 
-  if (!playerId) return <Vacio>Entra con tu email para ver tu historial.</Vacio>
-  if (cargando) return <Cargando filas={6} />
+  if (!playerId) return <Vacio>Entra con tu correo para ver tu expediente.</Vacio>
+  if (cargando) return <Cargando filas={7} />
   if (error) return <AvisoError error={error} />
   if (!datos) return <Vacio>No se encuentra a esa persona.</Vacio>
 
@@ -26,81 +30,72 @@ export default function Perfil() {
   const media = jugadas.length ? total / jugadas.length : 0
   const mejor = jugadas.length ? Math.max(...jugadas.map(h => h.aciertos)) : 0
   const victorias = jugadas.filter(h => h.es_ganador).length
-
-  const serie = historial.map(h => ({
-    jornada: `J${h.jornada}`, aciertos: h.aciertos, ganador: h.es_ganador,
-  }))
+  const serie = historial.map(h => ({ jornada: `J${h.jornada}`, aciertos: h.aciertos, ganador: h.es_ganador }))
 
   return (
     <>
-      <div className="encabezado-seccion">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div className="avatar" style={{ width: 52, height: 52, fontSize: '1.1rem' }}>
-            {iniciales(jugador.nombre)}
-          </div>
-          <div>
-            <h1>{jugador.nombre}</h1>
-            <p>{jugadas.length} jornada{jugadas.length === 1 ? '' : 's'} jugada{jugadas.length === 1 ? '' : 's'}
-               {victorias > 0 && ` · 🏆 ${victorias} victoria${victorias === 1 ? '' : 's'}`}</p>
-          </div>
+      <Portada
+        antetitulo={
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+            <span className="inicial" style={{ width: 24, height: 24, borderColor: 'var(--rojo)', color: 'var(--rojo)' }}>
+              {iniciales(jugador.nombre)}
+            </span>
+            Expediente
+          </span>
+        }
+        titular={titularPerfil(jugador, jugadas.length, victorias)}
+        entradilla={
+          jugadas.length
+            ? `${jugadas.length} jornada${jugadas.length === 1 ? '' : 's'} jugada${jugadas.length === 1 ? '' : 's'}, ${total} aciertos y una media de ${decimal(media)} por jornada.`
+            : 'Todavía sin jornadas disputadas.'
+        }
+      >
+        <div className="destacado">
+          <Destacado rotulo="Saldo" valor={euros(saldo_cents)}
+                     tono={saldo_cents < 0 ? 'acento' : undefined}
+                     nota={saldo_cents < 0 ? 'Pendiente de pagar' : 'A favor'} />
+          <Destacado rotulo="Mejor jornada" valor={mejor} nota="de 14 posibles" />
+          <Destacado rotulo="Jornadas ganadas" valor={victorias}
+                     nota={victorias ? 'Con premio en el bolsillo' : 'Todavía ninguna'} />
         </div>
-      </div>
-
-      <div className="rejilla c4">
-        <Dato etiqueta="Aciertos" valor={total} nota="En toda la temporada" />
-        <Dato etiqueta="Media" valor={media.toFixed(2)} nota="Por jornada" />
-        <Dato etiqueta="Mejor jornada" valor={mejor} nota="de 14" />
-        <Dato etiqueta="Saldo" valor={euros(saldo_cents)}
-              color={saldo_cents < 0 ? 'var(--rojo)' : 'var(--verde)'}
-              nota={saldo_cents < 0 ? 'Pendiente de pagar' : 'A tu favor'} />
-      </div>
+      </Portada>
 
       {serie.length > 0 && (
-        <>
-          <div className="encabezado-seccion">
-            <div>
-              <h2>Aciertos jornada a jornada</h2>
-              <p>Las barras doradas son las jornadas que ganaste. La línea es tu media.</p>
-            </div>
+        <Seccion titulo="Jornada a jornada" nota="La línea de puntos es tu media">
+          <div style={{ width: '100%', height: 230, marginTop: 14 }}>
+            <ResponsiveContainer>
+              <BarChart data={serie} margin={{ top: 8, right: 4, left: -22, bottom: 0 }}>
+                <CartesianGrid stroke="var(--regla)" vertical={false} />
+                <XAxis dataKey="jornada" stroke="var(--tinta-3)" fontSize={11} tickLine={false}
+                       axisLine={{ stroke: 'var(--regla-fuerte)' }} />
+                <YAxis domain={[0, 14]} stroke="var(--tinta-3)" fontSize={11} tickLine={false} axisLine={false} width={36} />
+                <Tooltip
+                  cursor={{ fill: 'var(--papel-2)' }}
+                  formatter={v => [`${v} aciertos`, '']}
+                  contentStyle={{
+                    background: 'var(--papel)', border: '1px solid var(--regla-fuerte)',
+                    borderRadius: 2, color: 'var(--tinta)', fontFamily: 'var(--mono)', fontSize: 12,
+                  }}
+                />
+                <ReferenceLine y={media} stroke="var(--tinta-3)" strokeDasharray="3 3" />
+                <Bar dataKey="aciertos">
+                  {serie.map((d, i) => <Cell key={i} fill={d.ganador ? 'var(--oro)' : 'var(--tinta-2)'} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-          <div className="tarjeta">
-            <div style={{ width: '100%', height: 250 }}>
-              <ResponsiveContainer>
-                <BarChart data={serie} margin={{ top: 6, right: 6, left: -22, bottom: 0 }}>
-                  <CartesianGrid stroke="var(--borde)" vertical={false} />
-                  <XAxis dataKey="jornada" stroke="var(--texto-suave)" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis domain={[0, 14]} stroke="var(--texto-suave)" fontSize={12} tickLine={false} axisLine={false} width={40} />
-                  <Tooltip
-                    cursor={{ fill: 'var(--superficie-2)' }}
-                    formatter={v => [`${v} aciertos`, '']}
-                    contentStyle={{
-                      background: 'var(--superficie)', border: '1px solid var(--borde)',
-                      borderRadius: 10, color: 'var(--texto)',
-                    }}
-                  />
-                  <ReferenceLine y={media} stroke="var(--texto-suave)" strokeDasharray="4 4" />
-                  <Bar dataKey="aciertos" radius={[6, 6, 0, 0]}>
-                    {serie.map((d, i) => (
-                      <Cell key={i} fill={d.ganador ? 'var(--oro)' : 'var(--acento)'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </>
+        </Seccion>
       )}
 
-      <div className="encabezado-seccion"><h2>Historial</h2></div>
-      {historial.length === 0 ? (
-        <Vacio>Todavía no has jugado ninguna jornada.</Vacio>
-      ) : (
-        <div className="tarjeta" style={{ padding: 0 }}>
+      <Seccion titulo="Historial">
+        {historial.length === 0 ? (
+          <Vacio>Todavía no has jugado ninguna jornada.</Vacio>
+        ) : (
           <div className="tabla-scroll">
             <table>
               <thead>
                 <tr>
-                  <th>Jornada</th>
+                  <th style={{ width: 96 }}>Jornada</th>
                   <th className="num">Aciertos</th>
                   <th className="num">Puesto</th>
                   <th className="num">Premio</th>
@@ -111,41 +106,49 @@ export default function Perfil() {
                 {[...historial].reverse().map(h => (
                   <tr key={h.round_id}>
                     <td>
-                      <strong>J{h.jornada}</strong>
+                      <span style={{ fontFamily: 'var(--serif)', fontSize: 19 }}>Jornada {h.jornada}</span>
                       {h.estado === 'en_juego' && (
-                        <span className="insignia viva" style={{ marginLeft: 8 }}>
-                          <span className="punto-vivo" />en juego
+                        <span className="etiqueta directo" style={{ marginLeft: 8 }}>
+                          <span className="punto-vivo" />En juego
                         </span>
                       )}
                     </td>
-                    <td className="num"><strong>{h.aciertos}</strong>{h.es_ganador && ' 🏆'}</td>
-                    <td className="num">{h.puesto ? `${h.puesto}º de ${h.de}` : '—'}</td>
-                    <td className="num">{h.premio_cents ? <Dinero cents={h.premio_cents} conSigno /> : '—'}</td>
-                    <td className="num"><Link to={`/jornada/${h.round_id}`} className="boton">Ver</Link></td>
+                    <td className="num destaca">
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                        {h.es_ganador && <Ganador />}{h.aciertos}
+                      </span>
+                    </td>
+                    <td className="num">{h.puesto ? `${h.puesto} de ${h.de}` : '—'}</td>
+                    <td className="num">
+                      {h.premio_cents ? <Dinero cents={h.premio_cents} conSigno /> : <span style={{ color: 'var(--tinta-3)' }}>—</span>}
+                    </td>
+                    <td className="num"><Link to={`/jornada/${h.round_id}`} className="boton">Abrir</Link></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </Seccion>
 
-      <div className="encabezado-seccion">
-        <div>
-          <h2>Movimientos</h2>
-          <p>Todo lo que has pagado y cobrado. Si algo no cuadra, aquí está el porqué.</p>
+      {/* La caja va al final y en tono menor: importa, pero no es lo primero
+          que uno quiere ver de su propio expediente. */}
+      <Seccion titulo="Tu caja" nota="Cuotas, premios y pagos">
+        <div className="cifras-menores">
+          <CifraMenor rotulo="Aciertos totales" valor={total} />
+          <CifraMenor rotulo="Media" valor={decimal(media)} />
+          <CifraMenor rotulo="Saldo" valor={euros(saldo_cents)}
+                      tono={saldo_cents < 0 ? 'var(--rojo)' : 'var(--verde)'} />
         </div>
-      </div>
-      <div className="tarjeta" style={{ padding: 0 }}>
-        <div className="tabla-scroll">
+        <div className="tabla-scroll" style={{ marginTop: 8 }}>
           <table>
             <thead>
-              <tr><th>Fecha</th><th>Concepto</th><th className="num">Importe</th></tr>
+              <tr><th style={{ width: 90 }}>Fecha</th><th>Concepto</th><th className="num">Importe</th></tr>
             </thead>
             <tbody>
               {movimientos.map((m, i) => (
                 <tr key={m.id ?? i}>
-                  <td style={{ color: 'var(--texto-suave)' }}>{fechaCorta(m.fecha)}</td>
+                  <td style={{ color: 'var(--tinta-3)', fontFamily: 'var(--mono)', fontSize: 12.5 }}>{fechaCorta(m.fecha)}</td>
                   <td>{m.nota}</td>
                   <td className="num"><Dinero cents={m.importe_cents} conSigno /></td>
                 </tr>
@@ -153,7 +156,7 @@ export default function Perfil() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Seccion>
     </>
   )
 }

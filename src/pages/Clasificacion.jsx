@@ -1,7 +1,11 @@
 ﻿import { Link } from 'react-router-dom'
 import { getTemporada, getClasificacion, getBote, getJornadas } from '../lib/api.js'
-import { useAsync, Cargando, Vacio, AvisoError, Dato, Persona, Puesto } from '../components/ui.jsx'
-import { euros } from '../lib/formato.js'
+import {
+  useAsync, Cargando, Vacio, AvisoError,
+  Portada, Destacado, CifraMenor, Seccion, Persona, Posicion, Ganador,
+} from '../components/ui.jsx'
+import { euros, decimal } from '../lib/formato.js'
+import { titularClasificacion } from '../lib/titulares.js'
 
 export default function Clasificacion() {
   const { cargando, error, datos } = useAsync(async () => {
@@ -13,90 +17,118 @@ export default function Clasificacion() {
     return { season, tabla, bote, jornadas }
   }, [])
 
-  if (cargando) return <Cargando filas={6} />
+  if (cargando) return <Cargando filas={7} />
   if (error) return <AvisoError error={error} />
-  if (!datos) return <Vacio>Todavía no hay ninguna temporada activa.</Vacio>
+  if (!datos) return <Vacio>Todavía no hay ninguna temporada abierta.</Vacio>
 
   const { season, tabla, bote, jornadas } = datos
   const enJuego = jornadas.find(j => j.estado === 'en_juego')
   const finalizadas = jornadas.filter(j => j.estado === 'finalizada')
   const lider = tabla[0]
 
+  const totalRepartido = finalizadas.reduce((a, j) => a + (j.premio_cents ?? 0), 0)
+
   return (
     <>
-      <div className="encabezado-seccion">
-        <div>
-          <h1>{season.nombre}</h1>
-          <p>{finalizadas.length} jornada{finalizadas.length === 1 ? '' : 's'} disputada
-             {finalizadas.length === 1 ? '' : 's'} · {euros(season.precio_columna_cents)} la columna</p>
+      <Portada
+        antetitulo={
+          enJuego
+            ? <>{season.nombre}<span className="etiqueta directo" style={{ marginLeft: 4 }}>
+                <span className="punto-vivo" />Jornada {enJuego.numero} en juego</span></>
+            : season.nombre
+        }
+        titular={titularClasificacion(tabla, finalizadas.length)}
+        entradilla={`${finalizadas.length} jornada${finalizadas.length === 1 ? '' : 's'} disputada${finalizadas.length === 1 ? '' : 's'} a ${euros(season.precio_columna_cents)} la columna. La mitad de lo que se recauda va para quien más acierte y la otra mitad engorda el bote.`}
+      >
+        {/* Lo que la gente viene a mirar, en grande. El resto baja de rango. */}
+        <div className="destacado">
+          <Destacado
+            rotulo="El bote"
+            valor={euros(bote.actual_cents)}
+            tono="oro"
+            nota="Se lo lleva entero quien clave los catorce"
+          />
+          <Destacado
+            rotulo="Líder de la general"
+            valor={lider?.nombre ?? '—'}
+            nota={lider ? `${lider.aciertos_total} aciertos · ${decimal(lider.media_aciertos)} de media` : 'Sin datos'}
+          />
+          <Destacado
+            rotulo="Repartido hasta hoy"
+            valor={euros(totalRepartido)}
+            nota={`Entre ${tabla.length} participantes`}
+          />
         </div>
-      </div>
-
-      <div className="rejilla c4">
-        <Dato etiqueta="Bote actual" valor={euros(bote.actual_cents)}
-              nota="Se lo lleva quien haga 14" color="var(--oro)" />
-        <Dato etiqueta="Líder" valor={lider?.nombre ?? '—'}
-              nota={lider ? `${lider.aciertos_total} aciertos` : 'Sin datos'} />
-        <Dato etiqueta="Jornadas" valor={finalizadas.length}
-              nota={enJuego ? `La ${enJuego.numero} en juego` : 'Ninguna en curso'} />
-        <Dato etiqueta="Participantes" valor={tabla.length} nota="En la oficina" />
-      </div>
+      </Portada>
 
       {enJuego && (
-        <div className="encabezado-seccion">
-          <div>
-            <h2>
-              Jornada {enJuego.numero}{' '}
-              <span className="insignia viva"><span className="punto-vivo" />EN JUEGO</span>
-            </h2>
-            <p>La clasificación provisional se actualiza sola conforme acaban los partidos.</p>
-          </div>
-          <Link to={`/jornada/${enJuego.round_id}`} className="boton">Ver en directo</Link>
-        </div>
+        <Seccion
+          titulo={`La jornada ${enJuego.numero} se está jugando`}
+          accion={<Link to={`/jornada/${enJuego.round_id}`} className="boton">Ver el directo</Link>}
+          entradilla="La clasificación provisional se mueve sola conforme van acabando los partidos."
+        />
       )}
 
-      <div className="encabezado-seccion">
-        <div>
-          <h2>Clasificación general</h2>
-          <p>Solo cuentan las jornadas finalizadas. Empate a aciertos: manda quien más jornadas ha ganado.</p>
-        </div>
-      </div>
-
-      {tabla.length === 0 ? (
-        <Vacio>Aún no se ha disputado ninguna jornada.</Vacio>
-      ) : (
-        <div className="tarjeta" style={{ padding: 0 }}>
+      <Seccion
+        titulo="Clasificación general"
+        nota="Solo jornadas finalizadas"
+      >
+        {tabla.length === 0 ? (
+          <Vacio>Aún no se ha disputado ninguna jornada.</Vacio>
+        ) : (
           <div className="tabla-scroll">
             <table>
               <thead>
                 <tr>
-                  <th style={{ width: 44 }}></th>
-                  <th>Jugador</th>
+                  <th style={{ width: 34 }}></th>
+                  <th>Participante</th>
                   <th className="num">Aciertos</th>
                   <th className="num">Media</th>
                   <th className="num">Mejor</th>
-                  <th className="num">Victorias</th>
+                  <th className="num">Jornadas ganadas</th>
                   <th className="num">Jugadas</th>
                 </tr>
               </thead>
               <tbody>
                 {tabla.map((f, i) => (
-                  <tr key={f.player_id}>
-                    <td><Puesto n={i + 1} /></td>
+                  <tr key={f.player_id} className={i < 3 ? 'podio' : undefined}>
+                    <td><Posicion n={i + 1} /></td>
                     <td>
                       <Link to={`/perfil/${f.player_id}`}><Persona nombre={f.nombre} /></Link>
                     </td>
-                    <td className="num"><strong>{f.aciertos_total}</strong></td>
-                    <td className="num">{f.media_aciertos}</td>
+                    <td className="num destaca">{f.aciertos_total}</td>
+                    <td className="num">{decimal(f.media_aciertos)}</td>
                     <td className="num">{f.mejor_jornada}</td>
-                    <td className="num">{f.victorias > 0 ? `🏆 ${f.victorias}` : '—'}</td>
+                    <td className="num">
+                      {f.victorias > 0
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <Ganador />{f.victorias}
+                          </span>
+                        : <span style={{ color: 'var(--tinta-3)' }}>—</span>}
+                    </td>
                     <td className="num">{f.jornadas_jugadas}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        )}
+      </Seccion>
+
+      {finalizadas.length > 0 && (
+        <Seccion titulo="La temporada en cifras">
+          <div className="cifras-menores">
+            <CifraMenor rotulo="Jornadas" valor={finalizadas.length} />
+            <CifraMenor rotulo="Participantes" valor={tabla.length} />
+            <CifraMenor rotulo="Boletos jugados"
+                        valor={finalizadas.reduce((a, j) => a + (j.boletos ?? 0), 0)} />
+            <CifraMenor rotulo="Recaudado"
+                        valor={euros(finalizadas.reduce((a, j) => a + (j.recaudacion_cents ?? 0), 0))} />
+            <CifraMenor rotulo="Mejor marca"
+                        valor={Math.max(0, ...tabla.map(f => f.mejor_jornada))}
+                        tono="var(--rojo)" />
+          </div>
+        </Seccion>
       )}
     </>
   )

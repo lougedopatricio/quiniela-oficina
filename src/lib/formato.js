@@ -9,6 +9,10 @@ export const eurosConSigno = (cents) => (cents > 0 ? '+' : '') + eur.format((cen
 
 export const claseDinero = (cents) => (cents > 0 ? 'positivo' : cents < 0 ? 'negativo' : '')
 
+/** Decimales a la española: 11,17 y no 11.17 ni un 8 pelado donde va 8,00. */
+export const decimal = (n, d = 2) =>
+  (n ?? 0).toLocaleString('es-ES', { minimumFractionDigits: d, maximumFractionDigits: d })
+
 export const fechaCorta = (iso) =>
   iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : '—'
 

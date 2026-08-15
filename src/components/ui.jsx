@@ -1,4 +1,5 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Trophy } from 'lucide-react'
 import { iniciales, euros, claseDinero } from '../lib/formato.js'
 
 /** Carga asíncrona con estados de carga y error, para no repetirlo en cada pantalla. */
@@ -28,27 +29,73 @@ export const Vacio = ({ children }) => <div className="vacio">{children}</div>
 export const AvisoError = ({ error }) => (
   <div className="aviso">
     <strong>No se han podido cargar los datos.</strong>
-    <div style={{ marginTop: 4, color: 'var(--texto-suave)' }}>{error?.message}</div>
+    <div style={{ marginTop: 4, color: 'var(--tinta-2)' }}>{error?.message}</div>
   </div>
 )
 
-export const Dato = ({ etiqueta, valor, nota, color }) => (
-  <div className="tarjeta dato">
-    <div className="etiqueta">{etiqueta}</div>
-    <div className="valor" style={color ? { color } : undefined}>{valor}</div>
-    {nota && <div className="nota">{nota}</div>}
+/**
+ * Cabecera de página, con la estructura de una portada: antetítulo, titular
+ * que cuenta algo, y entradilla que sitúa.
+ */
+export const Portada = ({ antetitulo, titular, entradilla, children }) => (
+  <header className="portada">
+    {antetitulo && <div className="antetitulo">{antetitulo}</div>}
+    <h1 className="titular">{titular}</h1>
+    {entradilla && <p className="entradilla">{entradilla}</p>}
+    {children}
+  </header>
+)
+
+/** Las dos o tres cifras que de verdad importan en cada pantalla. */
+export const Destacado = ({ rotulo, valor, nota, tono }) => (
+  <div>
+    <div className="rotulo">{rotulo}</div>
+    <div className={`cifra-grande ${tono ?? ''}`}>{valor}</div>
+    {nota && <div className="pie-cifra">{nota}</div>}
   </div>
 )
 
-export const Persona = ({ nombre }) => (
+/** Todo lo demás. Mismo dato, un tercio del peso visual. */
+export const CifraMenor = ({ rotulo, valor, tono }) => (
+  <div>
+    <div className="rotulo">{rotulo}</div>
+    <div className="valor" style={tono ? { color: tono } : undefined}>{valor}</div>
+  </div>
+)
+
+export const Seccion = ({ titulo, nota, entradilla, accion, children }) => (
+  <section className="seccion">
+    <div className="seccion-cabecera">
+      <h2>{titulo}</h2>
+      {accion ?? (nota && <span className="nota">{nota}</span>)}
+    </div>
+    {entradilla && <p className="entradilla">{entradilla}</p>}
+    {children}
+  </section>
+)
+
+export const Persona = ({ nombre, mostrarInicial = true }) => (
   <div className="persona">
-    <div className="avatar">{iniciales(nombre)}</div>
-    <span>{nombre}</span>
+    {mostrarInicial && <div className="inicial">{iniciales(nombre)}</div>}
+    <span className="nombre">{nombre}</span>
   </div>
 )
 
-export const Puesto = ({ n }) => (
-  <span className={`puesto ${n <= 3 ? `p${n}` : ''}`}>{n}</span>
+export const Posicion = ({ n }) => (
+  <span className={`posicion ${n === 1 ? 'p1' : ''}`}>{String(n).padStart(2, '0')}</span>
+)
+
+/** Medalla numerada, para cuando lo que se marca es un puesto del podio. */
+export const Medalla = ({ puesto }) =>
+  puesto <= 3 ? <span className={`medalla m${puesto}`} title={`${puesto}º`}>{puesto}</span> : null
+
+/**
+ * Marca de "ganó la jornada". Va SIN cifra a propósito: cuando se pone al lado
+ * de un número (los aciertos, las victorias) una medalla numerada se lee como
+ * un segundo dato y confunde.
+ */
+export const Ganador = () => (
+  <Trophy size={13} strokeWidth={2.2} style={{ color: 'var(--oro)', flex: 'none' }} aria-label="Ganador" />
 )
 
 export const Dinero = ({ cents, conSigno = false }) => (

@@ -1,55 +1,68 @@
 /* ==========================================================================
-   Sistema visual. Mobile-first: media oficina lo va a mirar desde el móvil
-   el domingo por la tarde, así que el layout base es el estrecho y el ancho
-   es la mejora.
+   Sistema visual · prensa deportiva
+   --------------------------------------------------------------------------
+   La referencia es un periódico deportivo, no un panel de control: papel en
+   vez de lienzo oscuro, titulares con voz propia, reglas horizontales en lugar
+   de tarjetas, y un único acento rojo que se gasta con cuentagotas.
+
+   Dos decisiones deliberadas:
+
+   1) NO hay modo oscuro automático. Una paleta editorial de papel invertida a
+      oscuro pierde exactamente lo que la hace funcionar. La prensa se lee en
+      claro; el negro se reserva para el modo directo, donde sí significa algo.
+
+   2) LAS TARJETAS SON LA EXCEPCIÓN. Antes todo vivía en una caja con el mismo
+      borde y la misma sombra, y por eso el bote pesaba lo mismo que una lista
+      de movimientos. Aquí la jerarquía la marcan el tamaño del texto y el
+      espacio, no los contenedores.
    ========================================================================== */
 
 :root {
-  --fondo:        #0b1120;
-  --superficie:   #131c31;
-  --superficie-2: #1b2540;
-  --borde:        #27324f;
-  --texto:        #e8edf7;
-  --texto-suave:  #93a1bd;
-  --acento:       #38bdf8;
-  --acento-2:     #22d3ee;
-  --verde:        #34d399;
-  --ambar:        #fbbf24;
-  --rojo:         #f87171;
-  --oro:          #fcd34d;
-  --plata:        #cbd5e1;
-  --bronce:       #d8a06a;
-  --radio:        14px;
-  --sombra:       0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
-  --ancho:        1100px;
-}
+  /* Papel y tinta */
+  --papel:        #fbfaf7;
+  --papel-2:      #f4f2ea;
+  --papel-3:      #ebe8dd;
+  --tinta:        #16150f;
+  --tinta-2:      #4d4839;
+  --tinta-3:      #8a8474;
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --fondo:        #f6f8fc;
-    --superficie:   #ffffff;
-    --superficie-2: #eef2f9;
-    --borde:        #dde4f0;
-    --texto:        #10182b;
-    --texto-suave:  #5b6883;
-    --acento:       #0284c7;
-    --acento-2:     #0891b2;
-    --verde:        #059669;
-    --ambar:        #b45309;
-    --rojo:         #dc2626;
-    --sombra:       0 1px 2px rgba(16,24,43,.06), 0 8px 24px rgba(16,24,43,.06);
-  }
+  /* Reglas: la fina separa filas, la gruesa cierra secciones */
+  --regla:        #ddd8cc;
+  --regla-fuerte: #16150f;
+
+  /* Un solo acento. El rojo señala; no decora. */
+  --rojo:         #a8321e;
+  --rojo-suave:   #f3e6e2;
+
+  --verde:        #2f6b4f;
+  --verde-suave:  #e4efe8;
+  --oro:          #9a7318;
+  --oro-suave:    #f5ecd6;
+
+  /* Modo directo · el único territorio oscuro de la app */
+  --term-fondo:   #12130f;
+  --term-panel:   #191b15;
+  --term-regla:   #2f322a;
+  --term-texto:   #e9ebe2;
+  --term-suave:   #7d8074;
+  --term-lima:    #c6f24e;
+  --term-rojo:    #e08878;
+
+  --serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --sans:  'Archivo', system-ui, -apple-system, sans-serif;
+  --mono:  'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --ancho: 1080px;
 }
 
 * { box-sizing: border-box; }
-
 html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--fondo);
-  color: var(--texto);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--papel);
+  color: var(--tinta);
+  font-family: var(--sans);
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -57,170 +70,329 @@ body {
 
 a { color: inherit; text-decoration: none; }
 
-h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: -.02em; }
-h1 { font-size: 1.6rem; }
-h2 { font-size: 1.15rem; }
-h3 { font-size: .95rem; }
+/* --------------------------------------------------------------------------
+   Tipografía
+   -------------------------------------------------------------------------- */
 
-/* --- Estructura ---------------------------------------------------------- */
+/* El antetítulo: de dónde viene la noticia. Es el único sitio con versalitas. */
+.antetitulo {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--rojo);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* El titular. Serif, apretado, y contando algo — no rotulando una sección. */
+.titular {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: clamp(30px, 6vw, 46px);
+  line-height: 1.02;
+  letter-spacing: -.01em;
+  margin: 6px 0 0;
+  color: var(--tinta);
+}
+.titular em { font-style: italic; }
+
+/* La entradilla: una línea que sitúa, no un manual de instrucciones. */
+.entradilla {
+  margin: 10px 0 0;
+  max-width: 62ch;
+  color: var(--tinta-2);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+h2 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1.1;
+  margin: 0;
+  letter-spacing: -.01em;
+}
+h3 { font-size: 15px; font-weight: 600; margin: 0; }
+
+/* --------------------------------------------------------------------------
+   Estructura
+   -------------------------------------------------------------------------- */
 .app { min-height: 100%; display: flex; flex-direction: column; }
 
-.cabecera {
-  position: sticky; top: 0; z-index: 20;
-  background: color-mix(in srgb, var(--fondo) 88%, transparent);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--borde);
+/* La mancheta, como la cabecera de un diario: nombre grande y filete debajo. */
+.mancheta {
+  border-bottom: 2px solid var(--regla-fuerte);
+  background: var(--papel);
+  position: sticky; top: 0; z-index: 30;
 }
-.cabecera-fila {
+.mancheta-fila {
   max-width: var(--ancho); margin: 0 auto;
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 16px;
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 20px 10px;
 }
-.marca { display: flex; align-items: center; gap: 9px; font-weight: 750; letter-spacing: -.03em; }
-.marca svg { color: var(--acento); }
-
-.nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
-.nav::-webkit-scrollbar { display: none; }
-.nav a {
-  padding: 7px 13px; border-radius: 999px; white-space: nowrap;
-  color: var(--texto-suave); font-weight: 600; font-size: .88rem;
-  transition: background .15s, color .15s;
+.logotipo {
+  font-family: var(--serif);
+  font-size: 25px;
+  line-height: 1;
+  letter-spacing: -.02em;
+  white-space: nowrap;
 }
-.nav a:hover { background: var(--superficie-2); color: var(--texto); }
-.nav a.activo { background: var(--acento); color: var(--fondo); }
+.logotipo b { font-weight: 400; }
+.logotipo span { color: var(--rojo); }
 
-.contenido { flex: 1; max-width: var(--ancho); width: 100%; margin: 0 auto; padding: 20px 16px 64px; }
+.fecha-cabecera {
+  font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--tinta-3); border-left: 1px solid var(--regla); padding-left: 16px;
+}
+
+.secciones {
+  border-bottom: 1px solid var(--regla);
+  background: var(--papel);
+  position: sticky; top: 51px; z-index: 29;
+}
+.secciones-fila {
+  max-width: var(--ancho); margin: 0 auto; padding: 0 20px;
+  display: flex; gap: 22px; overflow-x: auto; scrollbar-width: none;
+}
+.secciones-fila::-webkit-scrollbar { display: none; }
+.secciones a {
+  padding: 10px 0; white-space: nowrap;
+  font-size: 12.5px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--tinta-2);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.secciones a:hover { color: var(--tinta); }
+.secciones a.activo { color: var(--rojo); border-bottom-color: var(--rojo); }
+
+.contenido { flex: 1; max-width: var(--ancho); width: 100%; margin: 0 auto; padding: 26px 20px 72px; }
 
 .pie {
-  border-top: 1px solid var(--borde); padding: 18px 16px;
-  color: var(--texto-suave); font-size: .8rem; text-align: center;
+  border-top: 2px solid var(--regla-fuerte);
+  padding: 18px 20px; margin-top: auto;
+  color: var(--tinta-3); font-size: 12px;
+}
+.pie-fila { max-width: var(--ancho); margin: 0 auto; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+/* --------------------------------------------------------------------------
+   Portada · la pieza grande de cada pantalla
+   -------------------------------------------------------------------------- */
+.portada { padding-bottom: 22px; border-bottom: 2px solid var(--regla-fuerte); }
+
+/* El bote y el líder son lo que la gente viene a mirar, así que se ven
+   primero y en grande. El resto de cifras baja de rango. */
+.destacado {
+  display: grid; gap: 0;
+  grid-template-columns: 1fr;
+  border-top: 1px solid var(--regla);
+  margin-top: 22px;
+}
+@media (min-width: 760px) { .destacado { grid-template-columns: 1.15fr 1fr 1fr; } }
+
+.destacado > div { padding: 16px 20px 16px 0; border-bottom: 1px solid var(--regla); }
+@media (min-width: 760px) {
+  .destacado > div { border-bottom: 0; border-right: 1px solid var(--regla); }
+  .destacado > div:last-child { border-right: 0; padding-right: 0; }
+  .destacado > div + div { padding-left: 20px; }
 }
 
-/* --- Piezas -------------------------------------------------------------- */
-.tarjeta {
-  background: var(--superficie);
-  border: 1px solid var(--borde);
-  border-radius: var(--radio);
-  box-shadow: var(--sombra);
-  padding: 16px;
+.rotulo {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--tinta-3);
+}
+.cifra-grande {
+  font-family: var(--serif); font-size: 46px; line-height: 1;
+  margin-top: 6px; letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+}
+.cifra-grande.acento { color: var(--rojo); }
+.cifra-grande.oro { color: var(--oro); }
+.pie-cifra { color: var(--tinta-3); font-size: 12.5px; margin-top: 5px; }
+
+/* Cifras secundarias: misma información, un tercio del peso visual. */
+.cifras-menores {
+  display: flex; flex-wrap: wrap; gap: 28px;
+  padding: 14px 0; border-bottom: 1px solid var(--regla);
+}
+.cifras-menores .valor {
+  font-family: var(--mono); font-size: 19px; font-weight: 500;
+  font-variant-numeric: tabular-nums; margin-top: 2px;
 }
 
-.rejilla { display: grid; gap: 14px; }
-.rejilla.c2 { grid-template-columns: 1fr; }
-.rejilla.c3 { grid-template-columns: 1fr; }
-.rejilla.c4 { grid-template-columns: repeat(2, 1fr); }
-@media (min-width: 720px) {
-  .rejilla.c2 { grid-template-columns: repeat(2, 1fr); }
-  .rejilla.c3 { grid-template-columns: repeat(3, 1fr); }
-  .rejilla.c4 { grid-template-columns: repeat(4, 1fr); }
+/* --------------------------------------------------------------------------
+   Secciones
+   -------------------------------------------------------------------------- */
+.seccion { margin-top: 38px; }
+.seccion-cabecera {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; border-bottom: 1px solid var(--regla-fuerte); padding-bottom: 7px;
 }
+.seccion-cabecera .nota { color: var(--tinta-3); font-size: 12.5px; }
+.seccion > .entradilla { margin-bottom: 14px; }
 
-.dato .etiqueta { color: var(--texto-suave); font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
-.dato .valor { font-size: 1.7rem; font-weight: 780; letter-spacing: -.03em; margin-top: 2px; font-variant-numeric: tabular-nums; }
-.dato .nota { color: var(--texto-suave); font-size: .8rem; }
-
-.encabezado-seccion {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: 12px; margin: 26px 0 12px;
-}
-.encabezado-seccion p { margin: 2px 0 0; color: var(--texto-suave); font-size: .85rem; }
-
-/* --- Tablas: en móvil se desplazan solas, nunca empujan la página --------- */
+/* --------------------------------------------------------------------------
+   Tablas · el corazón de todo. Sin cajas: reglas, aire y cifras alineadas.
+   -------------------------------------------------------------------------- */
 .tabla-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-th {
-  text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
-  color: var(--texto-suave); font-weight: 700; padding: 8px 10px; white-space: nowrap;
-  border-bottom: 1px solid var(--borde);
+
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  text-align: left; padding: 9px 12px 8px 0;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--tinta-3);
+  border-bottom: 1px solid var(--regla-fuerte); white-space: nowrap;
 }
-td { padding: 10px; border-bottom: 1px solid var(--borde); }
+tbody td { padding: 11px 12px 11px 0; border-bottom: 1px solid var(--regla); vertical-align: middle; }
 tbody tr:last-child td { border-bottom: 0; }
-tbody tr.yo { background: color-mix(in srgb, var(--acento) 12%, transparent); }
-.num { text-align: right; }
+tbody tr:hover { background: var(--papel-2); }
+th.num, td.num { text-align: right; padding-right: 0; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+td.destaca { font-size: 16px; font-weight: 600; }
 
-.puesto {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; border-radius: 8px;
-  background: var(--superficie-2); font-weight: 750; font-size: .82rem;
+/* Filas de las tres primeras posiciones: un pelo más de presencia. */
+tbody tr.podio td { background: linear-gradient(to right, var(--papel-2), transparent 40%); }
+
+.posicion {
+  font-family: var(--mono); font-size: 13px; font-weight: 500;
+  color: var(--tinta-3); width: 26px; display: inline-block;
 }
-.puesto.p1 { background: var(--oro);   color: #422006; }
-.puesto.p2 { background: var(--plata); color: #1e293b; }
-.puesto.p3 { background: var(--bronce); color: #3b2408; }
+.posicion.p1 { color: var(--rojo); font-weight: 600; }
 
-.persona { display: flex; align-items: center; gap: 9px; min-width: 0; }
-.avatar {
-  width: 30px; height: 30px; border-radius: 50%; flex: none;
+.persona { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.persona .nombre { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inicial {
+  width: 28px; height: 28px; flex: none; border-radius: 50%;
+  border: 1px solid var(--regla-fuerte);
   display: grid; place-items: center;
-  font-size: .72rem; font-weight: 750; color: var(--fondo);
-  background: linear-gradient(135deg, var(--acento), var(--acento-2));
+  font-size: 11px; font-weight: 600; letter-spacing: .02em;
 }
-.persona span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* --- Signos 1 X 2 -------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+   Signos 1 X 2
+   -------------------------------------------------------------------------- */
+.tira-signos { display: flex; flex-wrap: wrap; gap: 3px; }
 .signo {
   display: inline-grid; place-items: center;
-  width: 26px; height: 26px; border-radius: 7px;
-  font-weight: 750; font-size: .8rem;
-  background: var(--superficie-2); color: var(--texto-suave);
-  border: 1px solid var(--borde);
+  width: 23px; height: 23px; border-radius: 2px;
+  font-family: var(--mono); font-weight: 500; font-size: 12px;
+  background: var(--papel-3); color: var(--tinta-2);
 }
-.signo.acierto { background: var(--verde); color: #04231a; border-color: transparent; }
-.signo.fallo   { background: color-mix(in srgb, var(--rojo) 20%, transparent); color: var(--rojo); border-color: color-mix(in srgb, var(--rojo) 35%, transparent); }
-.signo.vacio   { opacity: .4; }
-.tira-signos { display: flex; flex-wrap: wrap; gap: 4px; }
+.signo.acierto { background: var(--verde); color: #f2f8f4; }
+.signo.fallo   { background: transparent; color: var(--tinta-3); box-shadow: inset 0 0 0 1px var(--regla); }
+.signo.vacio   { background: transparent; color: var(--tinta-3); opacity: .5; }
+.signo.oficial { background: var(--tinta); color: var(--papel); }
 
-.insignia {
+/* --------------------------------------------------------------------------
+   Etiquetas
+   -------------------------------------------------------------------------- */
+.etiqueta {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 3px 9px; border-radius: 999px;
-  font-size: .74rem; font-weight: 700;
-  background: var(--superficie-2); color: var(--texto-suave);
+  padding: 3px 8px; border-radius: 2px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  background: var(--papel-3); color: var(--tinta-2);
 }
-.insignia.viva   { background: color-mix(in srgb, var(--rojo) 18%, transparent); color: var(--rojo); }
-.insignia.ok     { background: color-mix(in srgb, var(--verde) 18%, transparent); color: var(--verde); }
-.insignia.aviso  { background: color-mix(in srgb, var(--ambar) 18%, transparent); color: var(--ambar); }
+.etiqueta.directo { background: var(--rojo); color: #fff; }
+.etiqueta.ok      { background: var(--verde-suave); color: var(--verde); }
+.etiqueta.oro     { background: var(--oro-suave); color: var(--oro); }
 
-.punto-vivo {
-  width: 7px; height: 7px; border-radius: 50%; background: currentColor;
-  animation: latido 1.4s ease-in-out infinite;
-}
-@keyframes latido { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+.punto-vivo { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: latido 1.4s ease-in-out infinite; }
+@keyframes latido { 0%,100% { opacity: 1; } 50% { opacity: .2; } }
 @media (prefers-reduced-motion: reduce) { .punto-vivo { animation: none; } }
 
+.dinero { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .dinero.positivo { color: var(--verde); }
 .dinero.negativo { color: var(--rojo); }
 
-/* --- Controles ----------------------------------------------------------- */
-button, .boton {
-  font: inherit; font-weight: 650;
-  padding: 9px 15px; border-radius: 10px;
-  border: 1px solid var(--borde); background: var(--superficie-2); color: var(--texto);
-  cursor: pointer; transition: filter .15s, background .15s;
+/* Medalla dibujada, no emoji. */
+.medalla {
+  display: inline-grid; place-items: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  font-size: 9px; font-weight: 700; color: #fff; background: var(--tinta-3);
 }
-button:hover:not(:disabled), .boton:hover { filter: brightness(1.15); }
-button:disabled { opacity: .5; cursor: not-allowed; }
-button.principal { background: var(--acento); color: var(--fondo); border-color: transparent; }
+.medalla.m1 { background: var(--oro); }
+.medalla.m2 { background: #9a978c; }
+.medalla.m3 { background: #a97142; }
+
+/* --------------------------------------------------------------------------
+   Controles
+   -------------------------------------------------------------------------- */
+button, .boton {
+  font: inherit; font-size: 12.5px; font-weight: 600;
+  letter-spacing: .04em; text-transform: uppercase;
+  padding: 8px 14px; border-radius: 2px;
+  border: 1px solid var(--regla-fuerte); background: transparent; color: var(--tinta);
+  cursor: pointer; transition: background .12s, color .12s;
+}
+button:hover:not(:disabled), .boton:hover { background: var(--tinta); color: var(--papel); }
+button:disabled { opacity: .35; cursor: not-allowed; }
+button.principal { background: var(--rojo); border-color: var(--rojo); color: #fff; }
+button.principal:hover:not(:disabled) { background: var(--tinta); border-color: var(--tinta); }
 
 select, input {
-  font: inherit; padding: 8px 11px; border-radius: 10px;
-  border: 1px solid var(--borde); background: var(--superficie-2); color: var(--texto);
+  font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 2px;
+  border: 1px solid var(--regla); background: #fff; color: var(--tinta);
 }
+select:focus, input:focus { outline: 2px solid var(--rojo); outline-offset: 1px; }
 
+/* --------------------------------------------------------------------------
+   Avisos y estados
+   -------------------------------------------------------------------------- */
 .aviso {
-  border-radius: var(--radio); padding: 13px 15px;
-  border: 1px solid color-mix(in srgb, var(--ambar) 40%, transparent);
-  background: color-mix(in srgb, var(--ambar) 10%, transparent);
-  font-size: .88rem;
+  border-left: 3px solid var(--rojo); background: var(--rojo-suave);
+  padding: 12px 16px; font-size: 14px; color: var(--tinta);
 }
-.aviso strong { color: var(--ambar); }
+.aviso strong { font-weight: 700; }
 
-.vacio { text-align: center; padding: 44px 16px; color: var(--texto-suave); }
-
-.cargando { display: grid; gap: 10px; }
-.esqueleto {
-  height: 48px; border-radius: var(--radio);
-  background: linear-gradient(90deg, var(--superficie) 25%, var(--superficie-2) 37%, var(--superficie) 63%);
-  background-size: 400% 100%;
-  animation: brillo 1.3s ease infinite;
+.vacio {
+  text-align: center; padding: 52px 16px; color: var(--tinta-3);
+  border-top: 1px solid var(--regla); border-bottom: 1px solid var(--regla);
+  font-family: var(--serif); font-size: 19px;
 }
-@keyframes brillo { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
+.cargando { display: grid; gap: 1px; }
+.esqueleto { height: 44px; background: var(--papel-2); animation: pulso 1.4s ease infinite; }
+@keyframes pulso { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .esqueleto { animation: none; } }
+
+/* --------------------------------------------------------------------------
+   MODO DIRECTO
+   --------------------------------------------------------------------------
+   El único bloque oscuro, y solo mientras se juega. La lógica: el domingo por
+   la tarde esto se pone en la tele de la oficina y hay que leerlo de lejos, así
+   que gana la densidad y el contraste. El resto de la semana no aparece.
+   -------------------------------------------------------------------------- */
+.directo {
+  background: var(--term-fondo); color: var(--term-texto);
+  font-family: var(--mono); border-radius: 3px;
+  padding: 18px 20px; margin-top: 20px;
+}
+.directo .barra {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--term-regla); padding-bottom: 11px;
+  font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--term-suave);
+}
+.directo .barra .vivo { color: var(--term-lima); display: inline-flex; align-items: center; gap: 6px; }
+
+.directo .marcadores {
+  display: flex; gap: 30px; flex-wrap: wrap;
+  padding: 14px 0; border-bottom: 1px solid var(--term-regla);
+}
+.directo .marcadores .rotulo { color: var(--term-suave); }
+.directo .marcadores .valor { font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; margin-top: 3px; }
+.directo .marcadores .valor.lima { color: var(--term-lima); }
+
+.directo table { margin-top: 4px; }
+.directo thead th { color: var(--term-suave); border-bottom-color: var(--term-regla); font-family: var(--mono); }
+.directo tbody td { border-bottom-color: var(--term-regla); color: var(--term-texto); font-family: var(--mono); font-size: 13px; }
+.directo tbody tr:hover { background: var(--term-panel); }
+.directo tbody tr.podio td { background: none; }
+.directo .persona .nombre { text-transform: uppercase; letter-spacing: .03em; font-weight: 400; }
+.directo .inicial { border-color: var(--term-regla); color: var(--term-suave); }
+.directo .posicion { color: var(--term-suave); }
+.directo .signo { background: var(--term-panel); color: var(--term-suave); }
+.directo .signo.acierto { background: var(--term-lima); color: #1d2b06; }
+.directo .signo.fallo { background: transparent; color: var(--term-rojo); box-shadow: inset 0 0 0 1px #3d3630; }
+.directo .signo.vacio { background: transparent; color: var(--term-suave); }
+.directo .etiqueta { background: var(--term-panel); color: var(--term-suave); }
