@@ -20,8 +20,16 @@ export function useSesion() {
 
     const cargarJugador = async (user) => {
       if (!user) return { user: null, jugador: null, esAdmin: false }
+      // Sin 'email': la columna está deliberadamente fuera del GRANT de
+      // authenticated (ver 0007) porque el privilegio de Postgres no es por
+      // fila — concederla aquí dejaría a cualquiera leer el correo de
+      // cualquier otro jugador con un simple `players?select=email`. El
+      // propio correo de quien ha entrado ya está en `user.email`.
       const { data } = await supabase
-        .from('players').select('*').eq('user_id', user.id).maybeSingle()
+        .from('players')
+        .select('id, user_id, nombre, alias, avatar_url, is_admin, activo')
+        .eq('user_id', user.id)
+        .maybeSingle()
       return { user, jugador: data ?? null, esAdmin: !!data?.is_admin }
     }
 
