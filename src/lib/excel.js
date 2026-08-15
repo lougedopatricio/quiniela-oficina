@@ -45,10 +45,15 @@ export function leerBoletos(buffer, jugadores = []) {
 
   const matriz = XLSX.utils.sheet_to_json(hoja, { header: 1, blankrows: false, defval: '' })
 
+  // Cada persona se reconoce por su alias, su nombre y cualquier otra forma
+  // que el administrador haya registrado ("Alex", "Alejandro L.", el apodo de
+  // la oficina...). Sin esto, cambiar cómo se escribe un nombre en el Excel
+  // obliga a corregir el archivo en vez de la ficha.
   const porClave = new Map()
   for (const j of jugadores) {
-    porClave.set(sinAcentos(j.alias), j)
-    porClave.set(sinAcentos(j.nombre), j)
+    for (const forma of [j.alias, j.nombre, ...(j.alias_alternativos ?? [])]) {
+      if (forma) porClave.set(sinAcentos(forma), j)
+    }
   }
 
   const filas = []

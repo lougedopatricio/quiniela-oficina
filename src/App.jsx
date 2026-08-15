@@ -11,10 +11,16 @@ import { MODO_DEMO } from './lib/supabase.js'
 import { useSesion, salir } from './lib/sesion.js'
 import { Cargando } from './components/ui.jsx'
 
-// El importador arrastra SheetJS, que pesa más que el resto de la app junta y
-// solo lo usa el admin una vez por semana. Cargándolo aparte, la clasificación
-// —que es lo que abre todo el mundo desde el móvil— no lo descarga nunca.
-const Importar = lazy(() => import('./pages/admin/Importar.jsx'))
+// Toda la trastienda se carga aparte. El importador arrastra SheetJS, que pesa
+// más que el resto de la app junta, y el panel entero solo lo abre el
+// administrador: la clasificación, que es lo que mira todo el mundo desde el
+// móvil, no descarga nada de esto.
+const Redaccion     = lazy(() => import('./pages/admin/Redaccion.jsx'))
+const Participantes = lazy(() => import('./pages/admin/Participantes.jsx'))
+const JornadasAdmin = lazy(() => import('./pages/admin/JornadasAdmin.jsx'))
+const BoletosAdmin  = lazy(() => import('./pages/admin/Boletos.jsx'))
+const Caja          = lazy(() => import('./pages/admin/Caja.jsx'))
+const Importar      = lazy(() => import('./pages/admin/Importar.jsx'))
 
 const SECCIONES = [
   { a: '/',         txt: 'Portada' },
@@ -60,7 +66,7 @@ export default function App() {
             </NavLink>
           ))}
           {verAdmin && (
-            <NavLink to="/admin/importar" className={({ isActive }) => (isActive ? 'activo' : '')}>
+            <NavLink to="/admin" className={({ isActive }) => (isActive ? 'activo' : '')}>
               Redacción
             </NavLink>
           )}
@@ -84,11 +90,18 @@ export default function App() {
           <Route path="/perfil"         element={<Perfil />} />
           <Route path="/perfil/:id"     element={<Perfil />} />
           <Route path="/entrar"         element={<Entrar />} />
-          <Route path="/admin/importar" element={
+          <Route path="/admin" element={
             verAdmin
-              ? <Suspense fallback={<Cargando filas={4} />}><Importar /></Suspense>
+              ? <Suspense fallback={<Cargando filas={4} />}><Redaccion /></Suspense>
               : <Navigate to="/entrar" replace />
-          } />
+          }>
+            <Route index element={<Navigate to="/admin/participantes" replace />} />
+            <Route path="participantes" element={<Participantes />} />
+            <Route path="jornadas"      element={<JornadasAdmin />} />
+            <Route path="boletos"       element={<BoletosAdmin />} />
+            <Route path="caja"          element={<Caja />} />
+            <Route path="importar"      element={<Importar />} />
+          </Route>
           <Route path="*"               element={<Navigate to="/" replace />} />
         </Routes>
       </main>

@@ -2,6 +2,7 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine, Cell } from 'recharts'
 import { getPerfil } from '../lib/api.js'
 import { MODO_DEMO } from '../lib/supabase.js'
+import { useSesion } from '../lib/sesion.js'
 import { jugadorDemo } from '../lib/demo.js'
 import {
   useAsync, Cargando, Vacio, AvisoError,
@@ -12,14 +13,31 @@ import { titularPerfil } from '../lib/titulares.js'
 
 export default function Perfil() {
   const { id } = useParams()
-  const playerId = id ?? (MODO_DEMO ? jugadorDemo.id : null)
+  const sesion = useSesion()
+
+  // Sin `:id` en la ruta, "Mi expediente" es el de quien ha entrado. Antes esto
+  // resolvía a null fuera del modo demo, así que pedía iniciar sesión incluso a
+  // quien ya la tenía.
+  const playerId = id ?? (MODO_DEMO ? jugadorDemo.id : sesion.jugador?.id ?? null)
+  const esPropio = !id
 
   const { cargando, error, datos } = useAsync(
     () => (playerId ? getPerfil(playerId) : Promise.resolve(null)),
     [playerId]
   )
 
-  if (!playerId) return <Vacio>Entra con tu correo para ver tu expediente.</Vacio>
+  if (esPropio && sesion.cargando) return <Cargando filas={7} />
+
+  if (!playerId) {
+    // Dos situaciones muy distintas que antes se confundían en un solo mensaje.
+    return esPropio && sesion.user
+      ? <Vacio>
+          Tu cuenta ({sesion.user.email}) todavía no está asociada a ningún
+          participante. Pídele al administrador que te dé de alta con ese correo.
+        </Vacio>
+      : <Vacio>Entra con tu correo para ver tu expediente.</Vacio>
+  }
+
   if (cargando) return <Cargando filas={7} />
   if (error) return <AvisoError error={error} />
   if (!datos) return <Vacio>No se encuentra a esa persona.</Vacio>

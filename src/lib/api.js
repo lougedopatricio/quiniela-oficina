@@ -224,8 +224,208 @@ export async function getPerfil(playerId) {
 // Administración
 // ---------------------------------------------------------------------------
 export async function getJugadores() {
-  if (MODO_DEMO) return ok(DEMO.jugadores)
-  return lanzar(await supabase.from('players').select('id, nombre, alias').eq('activo', true).order('nombre'))
+  if (MODO_DEMO) return ok(DEMO.jugadores.map(j => ({ ...j, alias_alternativos: [] })))
+  return lanzar(
+    await supabase.from('players')
+      .select('id, nombre, alias, alias_alternativos')
+      .eq('activo', true).order('nombre')
+  )
+}
+
+/**
+ * Ficha completa de cada participante, con email y estado de la cuenta.
+ *
+ * Va contra `v_players_admin` y no contra `players` porque el email no está
+ * concedido a `authenticated` a nivel de columna (ver 0007): la vista corre con
+ * los permisos de su propietario y se filtra ella sola con is_admin(), así que
+ * es el único camino por el que un administrador puede leer los correos.
+ */
+export async function getParticipantes() {
+  if (MODO_DEMO) {
+    return ok(DEMO.jugadores.map(j => ({
+      ...j, email: `${j.alias}@ejemplo.com`, is_admin: j.id === 'p1',
+      activo: true, user_id: j.id === 'p1' ? 'demo' : null, alias_alternativos: [],
+    })))
+  }
+
+  const [fichas, saldos] = await Promise.all([
+    supabase.from('v_players_admin').select('*').order('nombre').then(lanzar),
+    getSaldos(),
+  ])
+  const alias = Object.fromEntries(
+    lanzar(await supabase.from('players').select('id, alias_alternativos'))
+      .map(p => [p.id, p.alias_alternativos ?? []])
+  )
+  const saldoDe = Object.fromEntries(saldos.map(s => [s.player_id, s.saldo_cents]))
+
+  return fichas.map(f => ({
+    ...f,
+    alias_alternativos: alias[f.id] ?? [],
+    saldo_cents: saldoDe[f.id] ?? 0,
+  }))
+}
+
+export async function crearParticipante({ nombre, alias, email, alias_alternativos = [] }) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  return lanzar(
+    await supabase.from('players')
+      .insert({ nombre, alias, email: email || null, alias_alternativos })
+      .select('id')   // nunca '*': email no es legible y reventaría la consulta
+      .single()
+  )
+}
+
+export async function actualizarParticipante(id, campos) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const { error } = await supabase.from('players').update(campos).eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+export async function borrarParticipante(id) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const { error } = await supabase.from('players').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Le manda a alguien su enlace de acceso.
+ *
+ * No hay contraseñas que restablecer: el acceso es por enlace mágico, así que
+ * "he perdido la contraseña" se resuelve pidiendo otro enlace. Esto no toca la
+ * sesión de quien lo pulsa; solo dispara un correo a la dirección indicada.
+ */
+export async function enviarEnlaceAcceso(email) {
+  if (MODO_DEMO) throw new Error('El modo demo no envía correos.')
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.origin + window.location.pathname },
+  })
+  if (error) throw new Error(error.message)
+}
+
+// ---------------------------------------------------------------------------
+// Jornadas y partidos
+// ---------------------------------------------------------------------------
+export async function crearJornada({ season_id, numero, abre_at, cierra_at, precio_override_cents }) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const { data, error } = await supabase.from('rounds')
+    .insert({ season_id, numero, abre_at, cierra_at, precio_override_cents })
+    .select().single()
+  if (error) throw new Error(error.message)
+
+  // Los 15 huecos, para poder rellenar los equipos a mano si LAE no los trae.
+  const filas = Array.from({ length: 15 }, (_, i) => ({
+    round_id: data.id, orden: i + 1, local: '', visitante: '',
+  }))
+  const { error: e2 } = await supabase.from('matches').insert(filas)
+  if (e2) throw new Error(e2.message)
+  return data
+}
+
+export async function actualizarJornada(id, campos) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const { error } = await supabase.from('rounds').update(campos).eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+export async function borrarJornada(id) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const { error } = await supabase.from('rounds').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+/** Guarda equipos, marcadores y signos de una jornada de una sentada. */
+export async function guardarPartidos(partidos) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const { error } = await supabase.from('matches').upsert(
+    partidos.map(m => ({
+      id: m.id, round_id: m.round_id, orden: m.orden,
+      local: m.local, visitante: m.visitante,
+      goles_local: m.goles_local, goles_visitante: m.goles_visitante,
+      signo: m.signo || null, estado: m.estado,
+      sustituido_de: m.sustituido_de || null,
+    })),
+    { onConflict: 'id' }
+  )
+  if (error) throw new Error(error.message)
+}
+
+/**
+ * Pide a la base que recalcule. La aritmética del reparto vive en PL/pgSQL y
+ * es idempotente, así que corregir un signo mal metido y volver a llamar deja
+ * las cuentas bien sin duplicar cuotas ni premios.
+ */
+export async function recalcularJornada(roundId) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const { data, error } = await supabase.rpc('recalcular_jornada', { p_round_id: roundId })
+  if (error) throw new Error(error.message)
+  return data
+}
+
+// ---------------------------------------------------------------------------
+// Boletos
+// ---------------------------------------------------------------------------
+export async function getBoletosDeJornada(roundId) {
+  if (MODO_DEMO) {
+    const r = DEMO.rounds.find(x => x.id === roundId)
+    return ok(r?.boletos ?? [])
+  }
+  return lanzar(
+    await supabase.from('bets')
+      .select('id, player_id, picks, estado, origen, players(nombre, alias)')
+      .eq('round_id', roundId)
+  )
+}
+
+export async function guardarBoleto({ id, round_id, player_id, picks }) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const fila = { round_id, player_id, picks, estado: 'confirmada', origen: 'admin' }
+  const { error } = id
+    ? await supabase.from('bets').update(fila).eq('id', id)
+    : await supabase.from('bets').upsert(fila, { onConflict: 'round_id,player_id' })
+  if (error) throw new Error(error.message)
+}
+
+export async function borrarBoleto(id) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const { error } = await supabase.from('bets').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+// ---------------------------------------------------------------------------
+// Caja
+// ---------------------------------------------------------------------------
+/**
+ * Anota un movimiento de dinero real.
+ *
+ * Solo tipos 'pago' y 'ajuste': las cuotas y los premios los calcula
+ * recalcular_jornada y los rehace en cada liquidación, así que cualquier
+ * apunte manual de esos dos tipos se perdería al recalcular.
+ */
+export async function registrarMovimiento({ player_id, tipo, importe_cents, nota }) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  if (!['pago', 'ajuste'].includes(tipo)) {
+    throw new Error('Solo se pueden anotar pagos o ajustes a mano.')
+  }
+  const { error } = await supabase.from('ledger')
+    .insert({ player_id, tipo, importe_cents, nota })
+  if (error) throw new Error(error.message)
+}
+
+export async function borrarMovimiento(id) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const { error } = await supabase.from('ledger').delete().eq('id', id).in('tipo', ['pago', 'ajuste'])
+  if (error) throw new Error(error.message)
+}
+
+export async function getMovimientosManuales() {
+  if (MODO_DEMO) return ok(DEMO.ledger.filter(l => l.tipo === 'pago'))
+  return lanzar(
+    await supabase.from('ledger')
+      .select('id, player_id, tipo, importe_cents, nota, fecha, players(nombre)')
+      .in('tipo', ['pago', 'ajuste'])
+      .order('fecha', { ascending: false })
+  )
 }
 
 /**
