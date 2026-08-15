@@ -11,6 +11,9 @@ export default function Importar() {
   const [roundId, setRoundId] = useState('')
   const [analisis, setAnalisis] = useState(null)
   const [estado, setEstado] = useState(null)
+  // Activado por defecto: lo normal es que quien entrega el boleto ya haya
+  // pagado en mano en el momento de recogerlo.
+  const [marcarPagado, setMarcarPagado] = useState(true)
 
   const { cargando, error, datos } = useAsync(async () => {
     const season = await getTemporada()
@@ -49,12 +52,13 @@ export default function Importar() {
   async function importar() {
     setEstado({ tipo: 'trabajando', txt: 'Importando…' })
     try {
-      const res = await importarBoletos(roundId, validas)
+      const res = await importarBoletos(roundId, validas, { marcarPagado })
+      const conPago = marcarPagado ? ` y ${validas.length} pago${validas.length === 1 ? '' : 's'} anotado${validas.length === 1 ? '' : 's'}` : ''
       setEstado({
         tipo: 'ok',
         txt: res?.liquidada
-          ? `${validas.length} boletos importados y jornada liquidada: ${res.ganadores} ganador(es) con ${res.max_aciertos} aciertos.`
-          : `${validas.length} boletos importados. La jornada se liquidará sola cuando Loterías publique los catorce signos.`,
+          ? `${validas.length} boletos importados${conPago}. Jornada liquidada: ${res.ganadores} ganador(es) con ${res.max_aciertos} aciertos.`
+          : `${validas.length} boletos importados${conPago}. La jornada se liquidará sola cuando Loterías publique los catorce signos.`,
       })
       setAnalisis(null)
     } catch (err) {
@@ -110,6 +114,12 @@ export default function Importar() {
             </span>
           )}
         </div>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, paddingBottom: 4 }}>
+          <input type="checkbox" checked={marcarPagado} onChange={e => setMarcarPagado(e.target.checked)}
+                 style={{ width: 16, height: 16 }} />
+          Marcar a todos como pagados en mano al importar
+        </label>
 
         {estado && (
           <div className="aviso">

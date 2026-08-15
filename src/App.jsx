@@ -108,7 +108,6 @@ export default function App() {
 
       <footer className="pie">
         <div className="pie-fila">
-          <span>Mitad para quien más acierta · mitad al bote · el pleno se lo lleva todo</span>
           <span>Resultados oficiales de Loterías y Apuestas del Estado</span>
         </div>
       </footer>

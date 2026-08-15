@@ -144,10 +144,20 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
   const cambiar = (orden, campo, valor) =>
     setBorrador(partidos.map(m => (m.orden === orden ? { ...m, [campo]: valor } : m)))
 
+  // Marca o desmarca un partido como sustituido a mano. Al marcarlo, se
+  // guarda el enfrentamiento oficial que había antes de tocarlo, para que
+  // quede constancia de qué se cambió. Es por partido, no por jornada
+  // entera: se puede sustituir uno solo y que el resto lo siga trayendo LAE.
+  const alternarSustituido = (m) =>
+    cambiar(m.orden, 'sustituido_de', m.sustituido_de ? null : `${m.local} – ${m.visitante}`)
+
   async function guardar() {
     setGuardando(true)
     try {
       await guardarPartidos(partidos.map(m => ({ ...m, round_id: roundId })))
+      // La etiqueta "Especial" de la jornada refleja si hay al menos un
+      // partido sustituido, no si el admin la marcó a mano en algún momento.
+      await actualizarJornada(roundId, { es_especial: partidos.some(m => m.sustituido_de) })
       setBorrador(null)
       alGuardar()
     } catch (e) { alFallar(e) } finally { setGuardando(false) }
@@ -163,7 +173,9 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
           <a href="https://www.loteriasyapuestas.es/es/quiniela" target="_blank" rel="noreferrer"
              style={{ color: 'var(--rojo)', textDecoration: 'underline' }}>
             ábrelo en otra pestaña
-          </a>. Los signos y marcadores sí llegan solos en cuanto la jornada acaba.
+          </a>. Los signos y marcadores sí llegan solos en cuanto la jornada acaba. Si cambias
+          algún partido por otro tuyo, márcalo como "Sustituido": ese en concreto ya no se
+          tocará solo, pero el resto se sigue sincronizando con LAE.
         </>
       }
       accion={<button className="principal" onClick={guardar} disabled={!borrador || guardando}>
@@ -179,6 +191,7 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
               <th>Visitante</th>
               <th className="num" style={{ width: 120 }}>Marcador</th>
               <th style={{ width: 130 }}>Signo</th>
+              <th style={{ width: 110 }}>Origen</th>
             </tr>
           </thead>
           <tbody>
@@ -214,6 +227,22 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
                         </button>
                       ))}
                     </div>
+                  )}
+                </td>
+                <td>
+                  {m.orden !== 15 && (
+                    <button type="button" onClick={() => alternarSustituido(m)}
+                            title={m.sustituido_de
+                              ? `Sustituye a: ${m.sustituido_de}. LAE no lo tocará; vuelve a pulsar para que vuelva a sincronizarse solo.`
+                              : 'Este partido lo trae LAE solo. Púlsalo para cambiarlo por otro tuyo.'}
+                            style={{
+                              padding: '5px 9px', fontSize: 12,
+                              background: m.sustituido_de ? 'var(--oro-suave)' : 'transparent',
+                              color: m.sustituido_de ? 'var(--oro)' : 'var(--tinta-3)',
+                              borderColor: m.sustituido_de ? 'var(--oro)' : 'var(--regla)',
+                            }}>
+                      {m.sustituido_de ? '★ Sustituido' : 'Oficial'}
+                    </button>
                   )}
                 </td>
               </tr>

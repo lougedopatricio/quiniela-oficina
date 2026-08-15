@@ -53,10 +53,8 @@ export default function Jornada() {
       >
         {!enJuego && (
           <div className="destacado">
-            <Destacado rotulo="Premio de la jornada" valor={euros(premio)} tono="acento"
-                       nota={boletos.length ? `Para quien más acertó` : 'Sin participantes'} />
-            <Destacado rotulo="Al bote" valor={euros(alBote)} tono="oro"
-                       nota="La otra mitad de lo recaudado" />
+            <Destacado rotulo="Premio de la jornada" valor={euros(premio)} tono="acento" />
+            <Destacado rotulo="Al bote" valor={euros(alBote)} tono="oro" />
             <Destacado rotulo="Recaudado" valor={euros(recaudacion)}
                        nota={`${resumen.boletos ?? boletos.length} boletos`} />
           </div>

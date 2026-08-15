@@ -25,7 +25,6 @@ export default function Bote() {
       <Portada
         antetitulo={season.nombre}
         titular={titularBote(bote.actual_cents, plenos.length)}
-        entradilla="La mitad de lo que se recauda cada jornada se queda aquí. Quien acierte los catorce se lo lleva entero; si nadie lo revienta antes de que acabe la temporada, acaba en cena."
       >
         <div className="destacado">
           <Destacado rotulo="En el bote ahora" valor={euros(bote.actual_cents)} tono="oro"

@@ -20,7 +20,7 @@ export default function Saldos() {
       <Portada
         antetitulo="La caja"
         titular={titularSaldos(datos)}
-        entradilla="Cada jornada jugada resta la cuota y cada premio suma. El saldo no es un número apuntado a mano: es la suma de todos los movimientos, así que siempre se puede ver de dónde sale."
+        entradilla="El saldo no es un número apuntado a mano: es la suma de todos los movimientos."
       >
         <div className="destacado">
           <Destacado rotulo="Pendiente de cobrar" valor={euros(-deudaTotal)} tono="acento"

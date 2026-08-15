@@ -127,8 +127,8 @@ export default function Participantes() {
                 <th>Alias en el Excel</th>
                 <th>Correo</th>
                 <th>Cuenta</th>
-                <th className="num">Saldo</th>
-                <th>Permisos</th>
+                <th className="num" style={{ paddingRight: 20 }}>Saldo</th>
+                <th style={{ paddingLeft: 4 }}>Permisos</th>
                 <th></th>
               </tr>
             </thead>
@@ -173,18 +173,20 @@ export default function Participantes() {
                         {p.user_id ? 'Enlazada' : 'Sin entrar'}
                       </span>
                     </td>
-                    <td className="num"><Dinero cents={p.saldo_cents} conSigno /></td>
-                    <td style={{ fontSize: 12.5 }}>
-                      <button onClick={() => alternar(p, 'is_admin')}
-                              title="Dar o quitar permisos de administrador"
-                              style={{ padding: '4px 9px', marginRight: 5 }}>
-                        {p.is_admin ? 'Admin' : 'Jugador'}
-                      </button>
-                      <button onClick={() => alternar(p, 'activo')}
-                              title="Un participante inactivo no aparece para nuevas jornadas"
-                              style={{ padding: '4px 9px' }}>
-                        {p.activo ? 'Activo' : 'Inactivo'}
-                      </button>
+                    <td className="num" style={{ paddingRight: 20 }}><Dinero cents={p.saldo_cents} conSigno /></td>
+                    <td style={{ fontSize: 12.5, paddingLeft: 4 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                        <button onClick={() => alternar(p, 'is_admin')}
+                                title="Dar o quitar permisos de administrador"
+                                style={{ padding: '4px 9px' }}>
+                          {p.is_admin ? 'Admin' : 'Jugador'}
+                        </button>
+                        <button onClick={() => alternar(p, 'activo')}
+                                title="Un participante inactivo no aparece para nuevas jornadas"
+                                style={{ padding: '4px 9px' }}>
+                          {p.activo ? 'Activo' : 'Inactivo'}
+                        </button>
+                      </div>
                     </td>
                     <td className="num" style={{ whiteSpace: 'nowrap' }}>
                       {enEdicion ? (

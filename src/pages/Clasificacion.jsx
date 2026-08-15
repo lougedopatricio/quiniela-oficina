@@ -38,16 +38,11 @@ export default function Clasificacion() {
             : season.nombre
         }
         titular={titularClasificacion(tabla, finalizadas.length)}
-        entradilla={`${finalizadas.length} jornada${finalizadas.length === 1 ? '' : 's'} disputada${finalizadas.length === 1 ? '' : 's'} a ${euros(season.precio_columna_cents)} la columna. La mitad de lo que se recauda va para quien más acierte y la otra mitad engorda el bote.`}
+        entradilla={`${finalizadas.length} jornada${finalizadas.length === 1 ? '' : 's'} disputada${finalizadas.length === 1 ? '' : 's'} a ${euros(season.precio_columna_cents)} la columna.`}
       >
         {/* Lo que la gente viene a mirar, en grande. El resto baja de rango. */}
         <div className="destacado">
-          <Destacado
-            rotulo="El bote"
-            valor={euros(bote.actual_cents)}
-            tono="oro"
-            nota="Se lo lleva entero quien clave los catorce"
-          />
+          <Destacado rotulo="El bote" valor={euros(bote.actual_cents)} tono="oro" />
           <Destacado
             rotulo="Líder de la general"
             valor={lider?.nombre ?? '—'}
@@ -65,7 +60,6 @@ export default function Clasificacion() {
         <Seccion
           titulo={`La jornada ${enJuego.numero} se está jugando`}
           accion={<Link to={`/jornada/${enJuego.round_id}`} className="boton">Ver el directo</Link>}
-          entradilla="La clasificación provisional se mueve sola conforme van acabando los partidos."
         />
       )}
 

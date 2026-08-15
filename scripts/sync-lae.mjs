@@ -129,31 +129,38 @@ async function main() {
     const s = normalizarSorteo(crudo)
     const { round, creada } = await jornadaPara(season.id, s.lae_id_sorteo, s.lae_jornada)
 
-    if (round.es_especial) {
-      // El admin cambió partidos a mano: pisarlos con los de LAE destruiría
-      // su jornada. Los signos de los partidos que sí sean oficiales ya los
-      // habrá traído una pasada anterior.
-      log(`Jornada ${round.numero} es especial; no se toca su alineación.`)
-      resumen.push({ jornada: round.numero, omitida: 'especial' })
-      continue
+    // Una jornada especial no tiene por qué tener TODOS los partidos
+    // cambiados: el admin puede haber sustituido solo uno o dos. La
+    // protección es por partido (matches.sustituido_de), no por jornada
+    // entera — así el resto se sigue sincronizando solo con LAE.
+    const { data: existentes, error: eEx } = await db
+      .from('matches').select('orden, sustituido_de').eq('round_id', round.id)
+    if (eEx) throw eEx
+    const protegidos = new Set((existentes ?? []).filter(m => m.sustituido_de).map(m => m.orden))
+
+    const filas = s.partidos
+      .filter(p => !protegidos.has(p.orden))
+      .map(p => ({
+        round_id: round.id,
+        orden: p.orden,
+        local: p.local,
+        visitante: p.visitante,
+        lae_id_local: p.lae_id_local,
+        lae_id_visitante: p.lae_id_visitante,
+        kickoff_at: p.kickoff_at,
+        goles_local: p.goles_local,
+        goles_visitante: p.goles_visitante,
+        signo: p.signo,
+        estado: p.estado,
+      }))
+
+    if (filas.length > 0) {
+      const { error } = await db.from('matches').upsert(filas, { onConflict: 'round_id,orden' })
+      if (error) throw error
     }
-
-    const filas = s.partidos.map(p => ({
-      round_id: round.id,
-      orden: p.orden,
-      local: p.local,
-      visitante: p.visitante,
-      lae_id_local: p.lae_id_local,
-      lae_id_visitante: p.lae_id_visitante,
-      kickoff_at: p.kickoff_at,
-      goles_local: p.goles_local,
-      goles_visitante: p.goles_visitante,
-      signo: p.signo,
-      estado: p.estado,
-    }))
-
-    const { error } = await db.from('matches').upsert(filas, { onConflict: 'round_id,orden' })
-    if (error) throw error
+    if (protegidos.size > 0) {
+      log(`Jornada ${round.numero}: ${protegidos.size} partido(s) sustituido(s) a mano, no se tocan.`)
+    }
 
     if (round.estado === 'borrador' || round.estado === 'abierta') {
       await db.from('rounds').update({ estado: 'cerrada' }).eq('id', round.id)

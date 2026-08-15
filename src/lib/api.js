@@ -105,16 +105,22 @@ export async function getJornada(roundId) {
     })
   }
 
-  const [round, partidos, boletos] = await Promise.all([
+  // `bets` y `round_scores` son tablas hermanas: las dos apuntan a `rounds` y
+  // `players`, pero no hay ninguna relación directa entre ellas, así que
+  // PostgREST no puede unirlas con un embed. Se piden por separado y se
+  // cruzan aquí por player_id.
+  const [round, partidos, boletos, scores] = await Promise.all([
     supabase.from('v_rounds_precio').select('*').eq('id', roundId).single().then(lanzar),
     supabase.from('matches').select('*').eq('round_id', roundId).order('orden').then(lanzar),
-    supabase.from('bets')
-      .select('player_id, picks, players(nombre, alias), round_scores(aciertos, aciertos_provisional, es_ganador)')
+    supabase.from('bets').select('player_id, picks, players(nombre, alias)').eq('round_id', roundId).then(lanzar),
+    supabase.from('round_scores').select('player_id, aciertos, aciertos_provisional, es_ganador')
       .eq('round_id', roundId).then(lanzar),
   ])
   const resumen = lanzar(
     await supabase.from('v_jornada_resumen').select('*').eq('round_id', roundId).maybeSingle()
   )
+
+  const scoreDe = Object.fromEntries(scores.map(s => [s.player_id, s]))
 
   return {
     round,
@@ -125,8 +131,8 @@ export async function getJornada(roundId) {
         picks: b.picks,
         nombre: b.players?.nombre ?? '—',
         alias: b.players?.alias ?? '',
-        aciertos: b.round_scores?.[0]?.aciertos ?? 0,
-        es_ganador: b.round_scores?.[0]?.es_ganador ?? false,
+        aciertos: scoreDe[b.player_id]?.aciertos ?? 0,
+        es_ganador: scoreDe[b.player_id]?.es_ganador ?? false,
         provisional: round.estado === 'en_juego',
       }))
       .sort((a, b) => b.aciertos - a.aciertos),
@@ -437,7 +443,7 @@ export async function getMovimientosManuales() {
  * sustituye las columnas en vez de duplicarlas, que es exactamente lo que pasa
  * cuando se detecta una errata después de haber subido el archivo.
  */
-export async function importarBoletos(roundId, filas) {
+export async function importarBoletos(roundId, filas, { marcarPagado = false } = {}) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
 
   const { error } = await supabase.from('bets').upsert(
@@ -451,6 +457,37 @@ export async function importarBoletos(roundId, filas) {
     { onConflict: 'round_id,player_id' }
   )
   if (error) throw new Error(error.message)
+
+  // Lo normal es que quien entrega el boleto ya haya pagado en mano. Se anota
+  // el pago ANTES de que exista la cuota (que la crea recalcular_jornada más
+  // abajo, y solo cuando estén los 14 signos): al llegar la cuota, se
+  // cancelan solas y el saldo queda en 0. No hay restricción de unicidad en
+  // la base para 'pago' —a diferencia de cuota y premio—, así que aquí se
+  // comprueba a mano quién ya tiene uno anotado, para que reimportar el mismo
+  // Excel no duplique el pago.
+  if (marcarPagado && filas.length) {
+    const { data: round } = await supabase.from('v_rounds_precio')
+      .select('precio_cents, numero').eq('id', roundId).single()
+    if (round) {
+      const { data: yaPagados } = await supabase.from('ledger')
+        .select('player_id').eq('round_id', roundId).eq('tipo', 'pago')
+      const tienen = new Set((yaPagados ?? []).map(p => p.player_id))
+      const pendientes = filas.filter(f => !tienen.has(f.jugador.id))
+
+      if (pendientes.length) {
+        const { error: eLedger } = await supabase.from('ledger').insert(
+          pendientes.map(f => ({
+            player_id: f.jugador.id,
+            round_id: roundId,
+            tipo: 'pago',
+            importe_cents: round.precio_cents,
+            nota: `Pago en mano · jornada ${round.numero}`,
+          }))
+        )
+        if (eLedger) throw new Error(eLedger.message)
+      }
+    }
+  }
 
   // La liquidación no se hace aquí: se pide a la base, que es la autoridad.
   // Si aún faltan signos oficiales, no repartirá nada y no pasa nada.

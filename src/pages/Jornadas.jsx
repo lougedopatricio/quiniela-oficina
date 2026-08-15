@@ -30,7 +30,7 @@ export default function Jornadas() {
       <Portada
         antetitulo={season.nombre}
         titular="Todas las jornadas, una por una"
-        entradilla={`${finalizadas.length} disputadas y ${euros(recaudado)} recaudados en total. Cada jornada reparte la mitad entre quienes más aciertan y manda la otra mitad al bote.`}
+        entradilla={`${finalizadas.length} disputadas y ${euros(recaudado)} recaudados en total.`}
       />
 
       <Seccion titulo="El histórico" nota="De la más reciente a la primera">
