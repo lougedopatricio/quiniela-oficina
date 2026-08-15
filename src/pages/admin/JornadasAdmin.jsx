@@ -156,7 +156,16 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
   return (
     <Seccion
       titulo={`Partidos de la jornada ${datos.round.numero}`}
-      entradilla="El signo es lo único que puntúa. Cámbialo si entró mal y después pulsa recalcular en la tabla de arriba; el dinero se rehace solo."
+      entradilla={
+        <>
+          El signo es lo único que puntúa. LAE no publica los equipos de una jornada hasta que
+          se juega, así que hay que copiarlos a mano del boletín oficial —{' '}
+          <a href="https://www.loteriasyapuestas.es/es/quiniela" target="_blank" rel="noreferrer"
+             style={{ color: 'var(--rojo)', textDecoration: 'underline' }}>
+            ábrelo en otra pestaña
+          </a>. Los signos y marcadores sí llegan solos en cuanto la jornada acaba.
+        </>
+      }
       accion={<button className="principal" onClick={guardar} disabled={!borrador || guardando}>
         {guardando ? 'Guardando…' : 'Guardar partidos'}
       </button>}

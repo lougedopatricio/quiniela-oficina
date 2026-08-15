@@ -420,9 +420,11 @@ export async function borrarMovimiento(id) {
 
 export async function getMovimientosManuales() {
   if (MODO_DEMO) return ok(DEMO.ledger.filter(l => l.tipo === 'pago'))
+  // `ledger` tiene DOS relaciones con `players` (player_id y created_by), así
+  // que hay que decirle a PostgREST cuál seguir o da un 300 de ambigüedad.
   return lanzar(
     await supabase.from('ledger')
-      .select('id, player_id, tipo, importe_cents, nota, fecha, players(nombre)')
+      .select('id, player_id, tipo, importe_cents, nota, fecha, players!ledger_player_id_fkey(nombre)')
       .in('tipo', ['pago', 'ajuste'])
       .order('fecha', { ascending: false })
   )
