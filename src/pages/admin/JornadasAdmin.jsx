@@ -156,7 +156,14 @@ export default function JornadasAdmin() {
 // comando, en cambio, se pega y ejecuta ESTANDO en loteriasyapuestas.es, así
 // que para LAE es indistinguible de cualquier visita normal: mismo origen,
 // misma IP del admin, sin nada raro que bloquear.
-const COMANDO_LAE = `(()=>{const h=new Date().toISOString().slice(0,10).replace(/-/g,''),d=new Date(Date.now()-21*864e5).toISOString().slice(0,10).replace(/-/g,'');Promise.all([fetch('/servicios/buscadorSorteos?game_id=LAQU&celebrados=true&fechaInicioInclusiva='+d+'&fechaFinInclusiva='+h).then(r=>r.json()).catch(()=>[]),fetch('/servicios/proximosv3?game_id=TODOS&num=3').then(r=>r.json()).then(x=>Array.isArray(x)?x.filter(p=>p.game_id==='LAQU'):[]).catch(()=>[])]).then(([celebrados,proximos])=>{const j=JSON.stringify({celebrados:Array.isArray(celebrados)?celebrados:[],proximos});copy(j);console.log('Copiado al portapapeles ('+j.length+' caracteres). Vuelve a la pestaña de la quiniela y pégalo.')})})();`
+//
+// Deliberadamente NO usa copy(): esa función de la consola falla en
+// silencio en Firefox (y a veces en Chrome) cuando se llama dentro de un
+// .then() en vez de en respuesta directa a la tecla Intro — comprobado.
+// En su lugar se imprime el JSON entero y se copia a mano desde la propia
+// consola (clic derecho sobre el texto → "Copiar cadena de texto" / "Copy
+// string"), que usa el menú nativo del navegador y no falla nunca.
+const COMANDO_LAE = `(()=>{const h=new Date().toISOString().slice(0,10).replace(/-/g,''),d=new Date(Date.now()-21*864e5).toISOString().slice(0,10).replace(/-/g,'');Promise.all([fetch('/servicios/buscadorSorteos?game_id=LAQU&celebrados=true&fechaInicioInclusiva='+d+'&fechaFinInclusiva='+h).then(r=>r.json()).catch(()=>[]),fetch('/servicios/proximosv3?game_id=TODOS&num=3').then(r=>r.json()).then(x=>Array.isArray(x)?x.filter(p=>p.game_id==='LAQU'):[]).catch(()=>[])]).then(([celebrados,proximos])=>{const j=JSON.stringify({celebrados:Array.isArray(celebrados)?celebrados:[],proximos});console.log(j)})})();`
 
 /** Camino manual para cuando el botón "Sincronizar con LAE ahora" no llega. */
 function PegarDatosLae({ alGuardar }) {
@@ -222,7 +229,11 @@ function PegarDatosLae({ alGuardar }) {
             </li>
             <li>Pulsa F12 (herramientas de desarrollador) y abre la pestaña "Consola".</li>
             <li>Vuelve aquí, pulsa el botón de abajo, y pega lo copiado en esa consola. Intro.</li>
-            <li>El propio comando copia el resultado solo. Vuelve a esta pestaña y pégalo en el cuadro de aquí abajo.</li>
+            <li>
+              Saldrá un texto largo impreso en la consola. Haz <strong>clic derecho encima</strong> y elige
+              "Copiar cadena de texto" (o "Copy string") — no se copia solo, ese paso es a mano.
+            </li>
+            <li>Vuelve a esta pestaña y pégalo en el cuadro de aquí abajo.</li>
           </ol>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
