@@ -329,11 +329,12 @@ button:disabled { opacity: .35; cursor: not-allowed; }
 button.principal { background: var(--rojo); border-color: var(--rojo); color: #fff; }
 button.principal:hover:not(:disabled) { background: var(--tinta); border-color: var(--tinta); }
 
-select, input {
+select, input, textarea {
   font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 2px;
   border: 1px solid var(--regla); background: #fff; color: var(--tinta);
 }
-select:focus, input:focus { outline: 2px solid var(--rojo); outline-offset: 1px; }
+textarea { width: 100%; resize: vertical; }
+select:focus, input:focus, textarea:focus { outline: 2px solid var(--rojo); outline-offset: 1px; }
 
 /* --------------------------------------------------------------------------
    Avisos y estados

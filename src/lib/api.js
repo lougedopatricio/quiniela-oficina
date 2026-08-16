@@ -5,6 +5,10 @@
 
 import { supabase, MODO_DEMO } from './supabase.js'
 import { DEMO, jugadorDemo } from './demo.js'
+// Puro JS sin nada de Node, así que se puede importar tal cual en el
+// navegador: es el mismo parser que usa scripts/sync-lae.mjs, para no tener
+// dos versiones de "qué significa este JSON de LAE" que puedan divergir.
+import { normalizarSorteo, normalizarProximo, esFinDeSemana } from '../../scripts/lae.mjs'
 
 const ok = (data) => Promise.resolve(data)
 
@@ -350,6 +354,93 @@ export async function sincronizarConLae() {
   const { data, error } = await supabase.rpc('disparar_sync_lae')
   if (error) throw new Error(error.message)
   return data
+}
+
+/**
+ * Camino manual para cuando la sincronización automática no puede llegar a
+ * LAE (Akamai bloqueando la IP de turno, por ejemplo). El admin ejecuta un
+ * comando en la consola del navegador ESTANDO en loteriasyapuestas.es —así
+ * el fetch sale desde su propia conexión, no desde un centro de datos, y sin
+ * problema de CORS porque el origen coincide— y pega aquí el resultado.
+ *
+ * A partir de ahí es el mismo proceso que sync-lae.mjs, solo que corriendo
+ * en el navegador del admin (ya autenticado) en vez de con service_role:
+ * las policies de RLS son las mismas que ya usan crearJornada y
+ * guardarPartidos, así que no hace falta ningún permiso especial.
+ */
+export async function procesarDatosLae({ celebrados = [], proximos = [] }) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+
+  const { data: season, error: eSeason } = await supabase
+    .from('seasons').select('id').eq('activa', true).single()
+  if (eSeason) throw new Error('No hay ninguna temporada activa.')
+
+  async function jornadaPara(laeIdSorteo, laeJornada) {
+    const { data: existente } = await supabase
+      .from('rounds').select('*').eq('lae_id_sorteo', laeIdSorteo).maybeSingle()
+    if (existente) return existente
+
+    const { data: ultima } = await supabase
+      .from('rounds').select('numero').eq('season_id', season.id)
+      .order('numero', { ascending: false }).limit(1).maybeSingle()
+
+    const { data: nueva, error } = await supabase.from('rounds').insert({
+      season_id: season.id, numero: (ultima?.numero ?? 0) + 1,
+      lae_id_sorteo: laeIdSorteo, lae_jornada: laeJornada, estado: 'borrador',
+    }).select().single()
+    if (error) throw new Error(error.message)
+    return nueva
+  }
+
+  const resumen = []
+
+  for (const crudo of celebrados) {
+    const s = normalizarSorteo(crudo)
+    if (!esFinDeSemana(s.fecha_sorteo)) {
+      resumen.push({ lae_jornada: s.lae_jornada, omitida: 'intersemanal' })
+      continue
+    }
+
+    const round = await jornadaPara(s.lae_id_sorteo, s.lae_jornada)
+
+    const { data: existentes } = await supabase
+      .from('matches').select('orden, sustituido_de').eq('round_id', round.id)
+    const protegidos = new Set((existentes ?? []).filter(m => m.sustituido_de).map(m => m.orden))
+
+    const filas = s.partidos.filter(p => !protegidos.has(p.orden)).map(p => ({
+      round_id: round.id, orden: p.orden, local: p.local, visitante: p.visitante,
+      lae_id_local: p.lae_id_local, lae_id_visitante: p.lae_id_visitante,
+      kickoff_at: p.kickoff_at, goles_local: p.goles_local, goles_visitante: p.goles_visitante,
+      signo: p.signo, estado: p.estado,
+    }))
+    if (filas.length) {
+      const { error } = await supabase.from('matches').upsert(filas, { onConflict: 'round_id,orden' })
+      if (error) throw new Error(error.message)
+    }
+
+    if (round.estado === 'borrador' || round.estado === 'abierta') {
+      await supabase.from('rounds').update({ estado: 'cerrada' }).eq('id', round.id)
+    }
+
+    const { data: res, error: eRpc } = await supabase.rpc('recalcular_jornada', { p_round_id: round.id })
+    if (eRpc) throw new Error(eRpc.message)
+    resumen.push({ jornada: round.numero, ...res })
+  }
+
+  for (const crudo of proximos.filter(p => p.game_id === 'LAQU')) {
+    const p = normalizarProximo(crudo)
+    if (!esFinDeSemana(p.fecha_sorteo) || (!p.abre_at && !p.cierra_at)) continue
+
+    const round = await jornadaPara(p.lae_id_sorteo, p.lae_jornada)
+    if (round.estado !== 'borrador') continue
+
+    const { error } = await supabase.from('rounds')
+      .update({ abre_at: p.abre_at, cierra_at: p.cierra_at, lae_jornada: p.lae_jornada })
+      .eq('id', round.id)
+    if (error) throw new Error(error.message)
+  }
+
+  return resumen
 }
 
 /** Guarda equipos, marcadores y signos de una jornada de una sentada. */

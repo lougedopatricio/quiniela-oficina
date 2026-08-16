@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Plus, Trash2, RefreshCw, Download } from 'lucide-react'
 import {
   getTemporada, getJornadas, getJornada, crearJornada, actualizarJornada,
-  borrarJornada, guardarPartidos, recalcularJornada, sincronizarConLae,
+  borrarJornada, guardarPartidos, recalcularJornada, sincronizarConLae, procesarDatosLae,
 } from '../../lib/api.js'
 import { useAsync, Cargando, AvisoError, Portada, Seccion, Vacio } from '../../components/ui.jsx'
 import { euros, fechaCorta } from '../../lib/formato.js'
@@ -144,7 +144,91 @@ export default function JornadasAdmin() {
       </Seccion>
 
       {abierta && <EditorPartidos roundId={abierta} alGuardar={refrescar} alFallar={fallo} />}
+
+      <PegarDatosLae alGuardar={refrescar} />
     </>
+  )
+}
+
+// El fetch hecho desde dentro de nuestra web nunca podría llegar a LAE (esa
+// combinación de bloqueos ya se investigó a fondo: Akamai no manda CORS, así
+// que ni con la IP correcta el navegador dejaría leer la respuesta). Este
+// comando, en cambio, se pega y ejecuta ESTANDO en loteriasyapuestas.es, así
+// que para LAE es indistinguible de cualquier visita normal: mismo origen,
+// misma IP del admin, sin nada raro que bloquear.
+const COMANDO_LAE = `(()=>{const h=new Date().toISOString().slice(0,10).replace(/-/g,''),d=new Date(Date.now()-21*864e5).toISOString().slice(0,10).replace(/-/g,'');Promise.all([fetch('/servicios/buscadorSorteos?game_id=LAQU&celebrados=true&fechaInicioInclusiva='+d+'&fechaFinInclusiva='+h).then(r=>r.json()).catch(()=>[]),fetch('/servicios/proximosv3?game_id=TODOS&num=3').then(r=>r.json()).then(x=>Array.isArray(x)?x.filter(p=>p.game_id==='LAQU'):[]).catch(()=>[])]).then(([celebrados,proximos])=>{const j=JSON.stringify({celebrados:Array.isArray(celebrados)?celebrados:[],proximos});copy(j);console.log('Copiado al portapapeles ('+j.length+' caracteres). Vuelve a la pestaña de la quiniela y pégalo.')})})();`
+
+/** Camino manual para cuando el botón "Sincronizar con LAE ahora" no llega. */
+function PegarDatosLae({ alGuardar }) {
+  const [abierto, setAbierto] = useState(false)
+  const [json, setJson] = useState('')
+  const [estado, setEstado] = useState(null)
+
+  async function copiarComando() {
+    await navigator.clipboard.writeText(COMANDO_LAE)
+    setEstado({ tipo: 'ok', txt: 'Comando copiado. Pégalo en la consola de la pestaña de LAE y pulsa Intro.' })
+  }
+
+  async function procesar() {
+    setEstado({ tipo: 'trabajando', txt: 'Procesando…' })
+    try {
+      const datos = JSON.parse(json)
+      const resumen = await procesarDatosLae(datos)
+      const intersemanales = resumen.filter(r => r.omitida === 'intersemanal').length
+      setJson('')
+      setEstado({
+        tipo: 'ok',
+        txt: `Listo: ${resumen.length - intersemanales} jornada(s) procesada(s)` +
+             (intersemanales ? `, ${intersemanales} intersemanal(es) ignorada(s).` : '.'),
+      })
+      alGuardar()
+    } catch (e) {
+      setEstado({
+        tipo: 'error',
+        txt: e instanceof SyntaxError ? 'Eso no es un JSON válido. Repite el paso 3 y pega el resultado tal cual.' : e.message,
+      })
+    }
+  }
+
+  return (
+    <Seccion
+      titulo="Pegar datos de LAE a mano"
+      nota={abierto ? undefined : 'Para cuando "Sincronizar con LAE ahora" no consiga llegar'}
+      accion={<button onClick={() => setAbierto(a => !a)}>{abierto ? 'Ocultar' : 'Abrir'}</button>}
+    >
+      {abierto && (
+        <div style={{ display: 'grid', gap: 14, padding: '14px 0', maxWidth: 560 }}>
+          <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, color: 'var(--tinta-2)', display: 'grid', gap: 6 }}>
+            <li>
+              Abre{' '}
+              <a href="https://www.loteriasyapuestas.es/es/quiniela" target="_blank" rel="noreferrer"
+                 style={{ color: 'var(--rojo)', textDecoration: 'underline' }}>
+                loteriasyapuestas.es
+              </a>{' '}
+              en otra pestaña.
+            </li>
+            <li>Pulsa F12 (herramientas de desarrollador) y abre la pestaña "Consola".</li>
+            <li>Vuelve aquí, pulsa el botón de abajo, y pega lo copiado en esa consola. Intro.</li>
+            <li>El propio comando copia el resultado solo. Vuelve a esta pestaña y pégalo en el cuadro de aquí abajo.</li>
+          </ol>
+
+          <button onClick={copiarComando} style={{ justifySelf: 'start' }}>
+            Copiar el comando del paso 3
+          </button>
+
+          <textarea value={json} onChange={e => setJson(e.target.value)} rows={4}
+                    placeholder="Pega aquí el resultado del paso 4"
+                    style={{ fontFamily: 'var(--mono)', fontSize: 12, padding: 8 }} />
+
+          <button className="principal" onClick={procesar}
+                  disabled={!json.trim() || estado?.tipo === 'trabajando'} style={{ justifySelf: 'start' }}>
+            Procesar
+          </button>
+
+          {estado && <div className="aviso">{estado.txt}</div>}
+        </div>
+      )}
+    </Seccion>
   )
 }
 
