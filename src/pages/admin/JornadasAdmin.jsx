@@ -163,10 +163,23 @@ function PegarDatosLae({ alGuardar }) {
   const [abierto, setAbierto] = useState(false)
   const [json, setJson] = useState('')
   const [estado, setEstado] = useState(null)
+  // Si el portapapeles automático falla (permisos del navegador, foco de la
+  // pestaña, lo que sea), se enseña el comando en una caja de texto para
+  // seleccionarlo y copiarlo a mano con Ctrl+C — eso nunca falla.
+  const [mostrarComando, setMostrarComando] = useState(false)
 
   async function copiarComando() {
-    await navigator.clipboard.writeText(COMANDO_LAE)
-    setEstado({ tipo: 'ok', txt: 'Comando copiado. Pégalo en la consola de la pestaña de LAE y pulsa Intro.' })
+    try {
+      await navigator.clipboard.writeText(COMANDO_LAE)
+      setEstado({ tipo: 'ok', txt: 'Comando copiado. Pégalo en la consola de la pestaña de LAE y pulsa Intro.' })
+      setMostrarComando(false)
+    } catch {
+      setEstado({
+        tipo: 'error',
+        txt: 'El navegador no ha dejado copiarlo solo. Selecciona el texto de abajo y cópialo con Ctrl+C (o clic derecho → Copiar).',
+      })
+      setMostrarComando(true)
+    }
   }
 
   async function procesar() {
@@ -212,9 +225,18 @@ function PegarDatosLae({ alGuardar }) {
             <li>El propio comando copia el resultado solo. Vuelve a esta pestaña y pégalo en el cuadro de aquí abajo.</li>
           </ol>
 
-          <button onClick={copiarComando} style={{ justifySelf: 'start' }}>
-            Copiar el comando del paso 3
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button onClick={copiarComando}>Copiar el comando del paso 3</button>
+            <button onClick={() => setMostrarComando(m => !m)} style={{ fontSize: 12.5 }}>
+              {mostrarComando ? 'Ocultar el comando' : '¿No se copia? Verlo para copiarlo a mano'}
+            </button>
+          </div>
+
+          {mostrarComando && (
+            <textarea readOnly value={COMANDO_LAE} rows={3}
+                      onFocus={e => e.target.select()}
+                      style={{ fontFamily: 'var(--mono)', fontSize: 11, padding: 8, color: 'var(--tinta-2)' }} />
+          )}
 
           <textarea value={json} onChange={e => setJson(e.target.value)} rows={4}
                     placeholder="Pega aquí el resultado del paso 4"
