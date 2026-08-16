@@ -17,3 +17,6 @@ dist-ssr
 
 # Boletos reales escaneados o exportados: son datos de compañeros.
 /boletos-privados/
+
+# Excels sueltos de pruebas locales
+/*.xlsx
