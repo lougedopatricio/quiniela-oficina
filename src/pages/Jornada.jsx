@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { getJornada, suscribirseAJornada } from '../lib/api.js'
 import {
   useAsync, Cargando, Vacio, AvisoError,
-  Portada, Destacado, CifraMenor, Seccion, Persona, Posicion, Ganador, TiraSignos, Dinero,
+  Portada, Destacado, CifraMenor, Seccion, Persona, Posicion, Ganador, TiraSignos, Dinero, Equipo,
 } from '../components/ui.jsx'
 import { euros, fechaHora } from '../lib/formato.js'
 import { titularJornada } from '../lib/titulares.js'
@@ -170,9 +170,11 @@ export default function Jornada() {
                 <tr key={m.orden} style={m.orden === 15 ? { color: 'var(--tinta-3)' } : undefined}>
                   <td className="posicion">{String(m.orden).padStart(2, '0')}</td>
                   <td>
-                    <strong style={{ fontWeight: 500 }}>{m.local}</strong>
-                    <span style={{ color: 'var(--tinta-3)', margin: '0 7px' }}>–</span>
-                    <strong style={{ fontWeight: 500 }}>{m.visitante}</strong>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                      <Equipo nombre={m.local} laeId={m.lae_id_local} />
+                      <span style={{ color: 'var(--tinta-3)' }}>–</span>
+                      <Equipo nombre={m.visitante} laeId={m.lae_id_visitante} alinear="derecha" />
+                    </span>
                     {m.orden === 15 && <span className="etiqueta" style={{ marginLeft: 10 }}>Pleno al 15 · no puntúa</span>}
                     {m.sustituido_de && <span className="etiqueta oro" style={{ marginLeft: 10 }}>Cambiado</span>}
                   </td>

@@ -268,6 +268,20 @@ tbody tr.podio td { background: linear-gradient(to right, var(--papel-2), transp
   font-size: 11px; font-weight: 600; letter-spacing: .02em;
 }
 
+.equipo { display: inline-flex; align-items: center; gap: 8px; }
+.equipo-derecha { flex-direction: row-reverse; }
+.equipo-nombre { font-weight: 500; }
+
+.escudo {
+  flex: none; border-radius: 50%; object-fit: contain;
+  background: var(--papel-3);
+}
+.escudo-inicial {
+  border: 1px solid var(--regla-fuerte);
+  display: grid; place-items: center;
+  font-size: 9px; font-weight: 600; letter-spacing: .02em;
+}
+
 /* --------------------------------------------------------------------------
    Signos 1 X 2
    -------------------------------------------------------------------------- */

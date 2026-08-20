@@ -81,6 +81,51 @@ export const Persona = ({ nombre, mostrarInicial = true }) => (
   </div>
 )
 
+/**
+ * Escudo de un equipo. Busca /escudos/{laeId}.png; si no existe (equipo
+ * recién ascendido, o el archivo aún no se ha añadido a public/escudos/)
+ * cae en un avatar con las iniciales, igual que hace `Persona` con la gente.
+ * Sin `laeId` va directo al avatar, para que la demo (sin ids reales) no
+ * pida nunca una imagen que no existe.
+ */
+export const Escudo = ({ nombre, laeId, tamano = 22 }) => {
+  const [rota, setRota] = useState(false)
+  const estilo = { width: tamano, height: tamano }
+
+  if (!laeId || rota) {
+    return (
+      <div className="escudo escudo-inicial" style={estilo} title={nombre}>
+        {iniciales(nombre)}
+      </div>
+    )
+  }
+  return (
+    <img
+      className="escudo"
+      style={estilo}
+      src={`${import.meta.env.BASE_URL}escudos/${laeId}.png`}
+      alt=""
+      title={nombre}
+      loading="lazy"
+      onError={() => setRota(true)}
+    />
+  )
+}
+
+/** Nombre de un equipo con su escudo delante, para las tablas de partidos. */
+export const Equipo = ({ nombre, laeId, alinear = 'izquierda' }) =>
+  alinear === 'derecha' ? (
+    <span className="equipo equipo-derecha">
+      <span className="equipo-nombre">{nombre}</span>
+      <Escudo nombre={nombre} laeId={laeId} />
+    </span>
+  ) : (
+    <span className="equipo">
+      <Escudo nombre={nombre} laeId={laeId} />
+      <span className="equipo-nombre">{nombre}</span>
+    </span>
+  )
+
 export const Posicion = ({ n }) => (
   <span className={`posicion ${n === 1 ? 'p1' : ''}`}>{String(n).padStart(2, '0')}</span>
 )
