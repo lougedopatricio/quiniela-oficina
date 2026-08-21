@@ -316,6 +316,19 @@ tbody tr.podio td { background: linear-gradient(to right, var(--papel-2), transp
 .marcador-fila.destacado { color: var(--rojo); font-weight: 600; }
 
 /* --------------------------------------------------------------------------
+   Cara a cara
+   Las filas en las que los dos ponen lo mismo se apagan: lo que hay que mirar
+   es dónde se separan, que es donde se decide la jornada.
+   -------------------------------------------------------------------------- */
+.cara-a-cara-mandos { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.cara-a-cara-mandos .versus {
+  font-family: var(--mono); font-size: 11px; color: var(--tinta-3);
+  text-transform: uppercase; letter-spacing: .1em;
+}
+.cara-a-cara tr.coinciden { opacity: .42; }
+.cara-a-cara tr.discrepan td { border-bottom-color: var(--regla-fuerte); }
+
+/* --------------------------------------------------------------------------
    Signos 1 X 2
    -------------------------------------------------------------------------- */
 .tira-signos { display: flex; flex-wrap: wrap; gap: 3px; }

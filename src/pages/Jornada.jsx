@@ -5,6 +5,7 @@ import {
   useAsync, Cargando, Vacio, AvisoError,
   Portada, Destacado, CifraMenor, Seccion, Persona, Posicion, Ganador, TiraSignos, Dinero, Equipo,
 } from '../components/ui.jsx'
+import CaraACara from '../components/CaraACara.jsx'
 import { euros, fechaHora } from '../lib/formato.js'
 import { titularJornada } from '../lib/titulares.js'
 
@@ -150,6 +151,12 @@ export default function Jornada() {
               </table>
             </div>
           )}
+        </Seccion>
+      )}
+
+      {boletos.length >= 2 && (
+        <Seccion titulo="Cara a cara" nota="Dónde se separan dos columnas">
+          <CaraACara partidos={partidos} boletos={boletos} />
         </Seccion>
       )}
 
