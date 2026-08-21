@@ -283,6 +283,39 @@ tbody tr.podio td { background: linear-gradient(to right, var(--papel-2), transp
 }
 
 /* --------------------------------------------------------------------------
+   Gráfico de evolución
+   La fila de nombres es leyenda y mando: dice quién es quién y elige a quién
+   se sigue. Solo uno va en rojo cada vez; el resto es contexto en gris.
+   -------------------------------------------------------------------------- */
+.leyenda-evolucion { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.chip-leyenda {
+  padding: 4px 10px; font-size: 12px; font-weight: 500;
+  letter-spacing: 0; text-transform: none;
+  border-color: var(--regla); color: var(--tinta-3);
+}
+.chip-leyenda:hover:not(:disabled) { background: var(--papel-3); color: var(--tinta); }
+.chip-leyenda.activo {
+  border-color: var(--rojo); color: var(--rojo); font-weight: 600;
+  background: var(--rojo-suave);
+}
+.chip-leyenda.activo:hover { background: var(--rojo); color: #fff; }
+
+.marcador-grafico {
+  background: var(--papel); border: 1px solid var(--regla-fuerte);
+  border-radius: 2px; padding: 9px 11px; font-size: 12px; min-width: 168px;
+}
+.marcador-titulo {
+  font-family: var(--mono); font-size: 11px; color: var(--tinta-3);
+  text-transform: uppercase; letter-spacing: .08em;
+  padding-bottom: 5px; margin-bottom: 5px; border-bottom: 1px solid var(--regla);
+}
+.marcador-fila { display: flex; align-items: baseline; gap: 8px; padding: 1.5px 0; color: var(--tinta-2); }
+.marcador-fila .puesto { font-family: var(--mono); font-size: 10.5px; color: var(--tinta-3); width: 13px; }
+.marcador-fila .quien { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.marcador-fila .cuanto { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.marcador-fila.destacado { color: var(--rojo); font-weight: 600; }
+
+/* --------------------------------------------------------------------------
    Signos 1 X 2
    -------------------------------------------------------------------------- */
 .tira-signos { display: flex; flex-wrap: wrap; gap: 3px; }

@@ -1,9 +1,10 @@
 ﻿import { Link } from 'react-router-dom'
-import { getTemporada, getClasificacion, getBote, getJornadas } from '../lib/api.js'
+import { getTemporada, getClasificacion, getBote, getJornadas, getEvolucion } from '../lib/api.js'
 import {
   useAsync, Cargando, Vacio, AvisoError,
   Portada, Destacado, CifraMenor, Seccion, Persona, Posicion, Ganador,
 } from '../components/ui.jsx'
+import Evolucion from '../components/Evolucion.jsx'
 import { euros, decimal } from '../lib/formato.js'
 import { titularClasificacion } from '../lib/titulares.js'
 
@@ -11,17 +12,18 @@ export default function Clasificacion() {
   const { cargando, error, datos } = useAsync(async () => {
     const season = await getTemporada()
     if (!season) return null
-    const [tabla, bote, jornadas] = await Promise.all([
+    const [tabla, bote, jornadas, evolucion] = await Promise.all([
       getClasificacion(season.id), getBote(season.id), getJornadas(season.id),
+      getEvolucion(season.id),
     ])
-    return { season, tabla, bote, jornadas }
+    return { season, tabla, bote, jornadas, evolucion }
   }, [])
 
   if (cargando) return <Cargando filas={7} />
   if (error) return <AvisoError error={error} />
   if (!datos) return <Vacio>Todavía no hay ninguna temporada abierta.</Vacio>
 
-  const { season, tabla, bote, jornadas } = datos
+  const { season, tabla, bote, jornadas, evolucion } = datos
   const enJuego = jornadas.find(j => j.estado === 'en_juego')
   const finalizadas = jornadas.filter(j => j.estado === 'finalizada')
   const lider = tabla[0]
@@ -108,6 +110,17 @@ export default function Clasificacion() {
           </div>
         )}
       </Seccion>
+
+      {evolucion.jornadas.length > 1 && (
+        <Seccion titulo="Cómo se ha llegado hasta aquí"
+                 nota="Aciertos acumulados · elige a quién seguir">
+          <Evolucion
+            jornadas={evolucion.jornadas}
+            acumulado={evolucion.acumulado}
+            tabla={tabla}
+          />
+        </Seccion>
+      )}
 
       {finalizadas.length > 0 && (
         <Seccion titulo="La temporada en cifras">

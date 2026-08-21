@@ -5,6 +5,7 @@
 
 import { supabase, MODO_DEMO } from './supabase.js'
 import { DEMO, jugadorDemo } from './demo.js'
+import { acumularAciertos } from './evolucion.js'
 // Puro JS sin nada de Node, así que se puede importar tal cual en el
 // navegador: es el mismo parser que usa scripts/sync-lae.mjs, para no tener
 // dos versiones de "qué significa este JSON de LAE" que puedan divergir.
@@ -65,6 +66,56 @@ const ordenClasificacion = (a, b) =>
   b.aciertos_total - a.aciertos_total ||
   b.victorias - a.victorias ||
   b.media_aciertos - a.media_aciertos
+
+/**
+ * Aciertos acumulados de cada participante jornada a jornada.
+ *
+ * La clasificación cuenta cómo va la temporada; esto cuenta cómo se ha
+ * llegado hasta ahí. Solo jornadas finalizadas, para que la línea no dé un
+ * salto con datos provisionales que luego cambian.
+ *
+ * Quien no juega una jornada no suma: su línea se queda plana ese tramo, que
+ * es exactamente lo que le pasa en la general. No se interpola.
+ *
+ * Devuelve los acumulados indexados por `player_id`, sin nombres: quien lo
+ * pinta ya tiene la clasificación cargada al lado y de ahí saca el nombre.
+ * Todo el que aparece aquí está en esa tabla —las dos salen de las mismas
+ * jornadas finalizadas—, así que el cruce siempre casa.
+ */
+export async function getEvolucion(seasonId) {
+  if (MODO_DEMO) {
+    const jornadas = DEMO.rounds
+      .filter(r => r.estado === 'finalizada')
+      .sort((a, b) => a.numero - b.numero)
+    return ok({
+      jornadas: jornadas.map(r => ({ round_id: r.id, numero: r.numero })),
+      acumulado: acumularAciertos(jornadas, r => r.boletos.map(b => [b.player_id, b.aciertos])),
+    })
+  }
+
+  // En dos pasos y no con un embed: `round_scores` y `rounds` se filtran por
+  // temporada, que vive en `rounds`. Pedir las jornadas primero deja la
+  // segunda consulta acotada a sus ids y evita depender de cómo PostgREST
+  // resuelve los filtros sobre tablas empotradas.
+  const jornadas = [...lanzar(
+    await supabase.from('rounds').select('id, numero')
+      .eq('season_id', seasonId).eq('estado', 'finalizada')
+  )].sort((a, b) => a.numero - b.numero)
+
+  if (jornadas.length === 0) return { jornadas: [], acumulado: {} }
+
+  const scores = lanzar(
+    await supabase.from('round_scores').select('round_id, player_id, aciertos')
+      .in('round_id', jornadas.map(j => j.id))
+  )
+  const porJornada = new Map(jornadas.map(j => [j.id, []]))
+  for (const s of scores) porJornada.get(s.round_id)?.push([s.player_id, s.aciertos])
+
+  return {
+    jornadas: jornadas.map(j => ({ round_id: j.id, numero: j.numero })),
+    acumulado: acumularAciertos(jornadas, j => porJornada.get(j.id)),
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Jornadas
