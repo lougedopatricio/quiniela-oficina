@@ -15,21 +15,16 @@
 // cambia: por eso sigue siendo él quien nombra el archivo.
 // ===========================================================================
 
+import { clave } from './texto.js'
+
 /**
  * Quita acentos, puntuación y mayúsculas para que "Alavés", "ALAVES" y
  * "alaves" sean la misma clave.
+ *
+ * Aguanta `null`, que es justo lo que traen los partidos de una jornada recién
+ * creada: nacen con los equipos sin rellenar.
  */
-export function normalizarNombre(nombre) {
-  // `= ''` en el parámetro solo cubriría undefined, y aquí llega null: los
-  // partidos de una jornada recién creada nacen con los equipos sin rellenar.
-  if (typeof nombre !== 'string') return ''
-  return nombre
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')   // fuera acentos
-    .toLowerCase()
-    .replace(/[.\-_'’]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
+export const normalizarNombre = clave
 
 // Nombre canónico -> id de LAE. Los ids salen de las respuestas reales de LAE
 // (tests/fixtures/lae-sorteo-1308406028.json).

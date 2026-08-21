@@ -8,6 +8,9 @@
 // ===========================================================================
 
 import * as XLSX from 'xlsx'
+// Así "Lucía" y "Lucia" casan con el mismo jugador. Compartido con equipos.js
+// para no tener dos veces el mismo truco de los diacríticos.
+import { sinAcentos } from './texto.js'
 
 const VALIDOS = new Set(['1', 'X', '2'])
 
@@ -24,10 +27,6 @@ export function normalizarSigno(v) {
   return { invalido: s }
 }
 
-// ̀-ͯ son las marcas diacríticas que NFD deja sueltas al
-// descomponer, así "Lucía" y "Lucia" casan con el mismo jugador.
-const sinAcentos = (s) =>
-  String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase()
 
 /**
  * Lee el libro y devuelve las filas con sus problemas señalados.

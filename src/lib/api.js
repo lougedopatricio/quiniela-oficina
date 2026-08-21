@@ -6,10 +6,11 @@
 import { supabase, MODO_DEMO } from './supabase.js'
 import { DEMO, jugadorDemo } from './demo.js'
 import { acumularAciertos } from './evolucion.js'
+import { puestoEn } from './puestos.js'
 // Puro JS sin nada de Node, así que se puede importar tal cual en el
 // navegador: es el mismo parser que usa scripts/sync-lae.mjs, para no tener
 // dos versiones de "qué significa este JSON de LAE" que puedan divergir.
-import { normalizarSorteo, normalizarProximo, esFinDeSemana } from '../../scripts/lae.mjs'
+import { normalizarSorteo, normalizarProximo, esFinDeSemana, signoDeMarcador } from '../../scripts/lae.mjs'
 
 const ok = (data) => Promise.resolve(data)
 
@@ -17,6 +18,24 @@ function lanzar({ data, error }) {
   if (error) throw new Error(error.message)
   return data
 }
+
+/**
+ * Los aciertos que hay que enseñar de una puntuación.
+ *
+ * `round_scores` guarda dos cuentas distintas a propósito (ver 0004):
+ * `aciertos` suma solo los signos OFICIALES de LAE y es la que decide quién
+ * cobra, y `aciertos_provisional` incluye además los deducidos del marcador en
+ * vivo. Mientras la jornada no está liquidada la buena es la provisional: si
+ * no, la tabla del domingo enseña un contador a cero al lado de casillas ya
+ * pintadas en verde, porque la tira de signos sí usa el provisional.
+ *
+ * Una vez finalizada las dos coinciden —ya está todo oficial—, pero se usa
+ * `aciertos` explícitamente, que es la que repartió el dinero.
+ */
+const aciertosVigentes = (score, estadoRonda) =>
+  estadoRonda === 'finalizada'
+    ? (score?.aciertos ?? 0)
+    : (score?.aciertos_provisional ?? score?.aciertos ?? 0)
 
 // ---------------------------------------------------------------------------
 // Temporada
@@ -129,7 +148,10 @@ export async function getJornadas(seasonId) {
       recaudacion_cents: r.liquidacion?.recaudacion ?? r.boletos.length * r.precio_cents,
       premio_cents: r.liquidacion?.premio ?? 0,
       al_bote_cents: r.liquidacion?.alBote ?? 0,
-      mejor_puntuacion: Math.max(...r.boletos.map(b => b.aciertos)),
+      // Sin boletos no hay mejor puntuación: `null`, igual que devuelve el
+      // max() de la vista. Un Math.max() sin argumentos daría -Infinity, que
+      // el `?? '—'` de la tabla no atrapa y acabaría impreso en pantalla.
+      mejor_puntuacion: r.boletos.length ? Math.max(...r.boletos.map(b => b.aciertos)) : null,
     })).sort((a, b) => b.numero - a.numero))
   }
 
@@ -186,7 +208,7 @@ export async function getJornada(roundId) {
         picks: b.picks,
         nombre: b.players?.nombre ?? '—',
         alias: b.players?.alias ?? '',
-        aciertos: scoreDe[b.player_id]?.aciertos ?? 0,
+        aciertos: aciertosVigentes(scoreDe[b.player_id], round.estado),
         es_ganador: scoreDe[b.player_id]?.es_ganador ?? false,
         provisional: round.estado === 'en_juego',
       }))
@@ -235,12 +257,11 @@ export async function getPerfil(playerId) {
       .map(r => {
         const b = r.boletos.find(x => x.player_id === j.id)
         if (!b) return null
-        const orden = [...r.boletos].sort((a, c) => c.aciertos - a.aciertos)
         return {
           round_id: r.id, jornada: r.numero, estado: r.estado,
           aciertos: b.aciertos, es_ganador: !!b.es_ganador,
           premio_cents: b.premio_cents ?? 0,
-          puesto: orden.findIndex(x => x.player_id === j.id) + 1,
+          puesto: puestoEn(b.aciertos, r.boletos.map(x => x.aciertos)),
           de: r.boletos.length,
           picks: b.picks,
         }
@@ -267,14 +288,40 @@ export async function getPerfil(playerId) {
     movimientos.filter(m => m.tipo === 'premio').map(m => [m.round_id, m.importe_cents])
   )
 
+  // El puesto no está en `round_scores`: sale de comparar con el resto de la
+  // jornada, así que hacen falta también las puntuaciones de los demás. Es una
+  // consulta más, pero sin ella la columna "Puesto" del expediente se quedaba
+  // siempre en un guión —que es justo lo que pasaba, porque solo la rama demo
+  // lo calculaba.
+  const rondas = scores.map(s => s.rounds)
+  const rivales = rondas.length
+    ? lanzar(
+        await supabase.from('round_scores')
+          .select('round_id, aciertos, aciertos_provisional')
+          .in('round_id', rondas.map(r => r.id))
+      )
+    : []
+
+  const porRonda = new Map(rondas.map(r => [r.id, []]))
+  for (const rs of rivales) {
+    const ronda = rondas.find(r => r.id === rs.round_id)
+    porRonda.get(rs.round_id)?.push(aciertosVigentes(rs, ronda?.estado))
+  }
+
   return {
     jugador,
     historial: scores
-      .map(s => ({
-        round_id: s.rounds.id, jornada: s.rounds.numero, estado: s.rounds.estado,
-        aciertos: s.aciertos, es_ganador: s.es_ganador,
-        premio_cents: premioDe[s.rounds.id] ?? 0,
-      }))
+      .map(s => {
+        const todos = porRonda.get(s.rounds.id) ?? []
+        const aciertos = aciertosVigentes(s, s.rounds.estado)
+        return {
+          round_id: s.rounds.id, jornada: s.rounds.numero, estado: s.rounds.estado,
+          aciertos, es_ganador: s.es_ganador,
+          premio_cents: premioDe[s.rounds.id] ?? 0,
+          puesto: puestoEn(aciertos, todos),
+          de: todos.length,
+        }
+      })
       .sort((a, b) => a.jornada - b.jornada),
     movimientos,
     saldo_cents: movimientos.reduce((a, l) => a + l.importe_cents, 0),
@@ -462,7 +509,7 @@ export async function procesarDatosLae({ celebrados = [], proximos = [] }) {
       round_id: round.id, orden: p.orden, local: p.local, visitante: p.visitante,
       lae_id_local: p.lae_id_local, lae_id_visitante: p.lae_id_visitante,
       kickoff_at: p.kickoff_at, goles_local: p.goles_local, goles_visitante: p.goles_visitante,
-      signo: p.signo, estado: p.estado,
+      signo: p.signo, signo_provisional: p.signo_provisional, estado: p.estado,
     }))
     if (filas.length) {
       const { error } = await supabase.from('matches').upsert(filas, { onConflict: 'round_id,orden' })
@@ -502,7 +549,14 @@ export async function guardarPartidos(partidos) {
       id: m.id, round_id: m.round_id, orden: m.orden,
       local: m.local, visitante: m.visitante,
       goles_local: m.goles_local, goles_visitante: m.goles_visitante,
-      signo: m.signo || null, estado: m.estado,
+      signo: m.signo || null,
+      // El provisional se deduce del marcador que teclea el admin, no se pide
+      // aparte: es lo que permite que la tabla del domingo se mueva mientras
+      // LAE aún no ha publicado nada. El oficial se queda como esté.
+      signo_provisional: m.orden <= 14
+        ? signoDeMarcador(m.goles_local, m.goles_visitante)
+        : null,
+      estado: m.estado,
       sustituido_de: m.sustituido_de || null,
     })),
     { onConflict: 'id' }

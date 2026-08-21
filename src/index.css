@@ -269,6 +269,10 @@ tbody tr.podio td { background: linear-gradient(to right, var(--papel-2), transp
 }
 
 .equipo { display: inline-flex; align-items: center; gap: 8px; }
+/* En el editor de admin el escudo va pegado al campo, como una etiqueta que
+   confirma que el nombre tecleado se ha reconocido. */
+.equipo-editable { display: flex; align-items: center; gap: 7px; }
+.equipo-editable input { flex: 1; min-width: 0; }
 .equipo-derecha { flex-direction: row-reverse; }
 .equipo-nombre { font-weight: 500; }
 

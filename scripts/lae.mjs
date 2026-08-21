@@ -22,6 +22,21 @@ export function parsearMarcador(v) {
 }
 
 /**
+ * El signo que implica un marcador. `null` si todavía no hay resultado.
+ *
+ * Es lo que alimenta `matches.signo_provisional`, el que mueve la
+ * clasificación en vivo. NUNCA se escribe en `signo`: ese es el oficial de
+ * LAE, el único que puntúa y reparte dinero, y no se deduce — se espera a que
+ * lo publiquen.
+ */
+export function signoDeMarcador(golesLocal, golesVisitante) {
+  if (golesLocal == null || golesVisitante == null) return null
+  if (golesLocal > golesVisitante) return '1'
+  if (golesLocal < golesVisitante) return '2'
+  return 'X'
+}
+
+/**
  * LAE emite fechas sin zona (`"2026-04-24 21:00:00"`) que son hora peninsular
  * española. Interpretarlas como UTC desplazaría todos los horarios una o dos
  * horas, así que se convierten explícitamente.
@@ -65,6 +80,10 @@ export function normalizarSorteo(raw) {
       goles_visitante: visitante,
       // El partido 15 es el Pleno al 15: su "signo" no es 1/X/2 y no puntúa.
       signo: orden <= 14 ? limpiarSigno(p.signo) : null,
+      // Deducido del marcador, para la clasificación en vivo. Va aparte del
+      // oficial a propósito: hay un rato —a veces horas— en el que el partido
+      // ya ha terminado y LAE todavía no ha publicado el escrutinio.
+      signo_provisional: orden <= 14 ? signoDeMarcador(local, visitante) : null,
       estado: local === null ? 'pendiente' : 'finalizado',
     }
   })

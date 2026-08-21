@@ -164,6 +164,7 @@ async function main() {
         goles_local: p.goles_local,
         goles_visitante: p.goles_visitante,
         signo: p.signo,
+        signo_provisional: p.signo_provisional,
         estado: p.estado,
       }))
 

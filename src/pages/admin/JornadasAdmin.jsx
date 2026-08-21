@@ -4,8 +4,9 @@ import {
   getTemporada, getJornadas, getJornada, crearJornada, actualizarJornada,
   borrarJornada, guardarPartidos, recalcularJornada, sincronizarConLae, procesarDatosLae,
 } from '../../lib/api.js'
-import { useAsync, Cargando, AvisoError, Portada, Seccion, Vacio } from '../../components/ui.jsx'
+import { useAsync, Cargando, AvisoError, Portada, Seccion, Vacio, Escudo } from '../../components/ui.jsx'
 import { euros, fechaCorta } from '../../lib/formato.js'
+import { signoDeMarcador } from '../../../scripts/lae.mjs'
 
 const ESTADOS = ['borrador', 'abierta', 'cerrada', 'en_juego', 'finalizada']
 
@@ -333,10 +334,24 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
             {partidos.map(m => (
               <tr key={m.orden} style={m.orden === 15 ? { opacity: .55 } : undefined}>
                 <td className="posicion">{String(m.orden).padStart(2, '0')}</td>
-                <td><input value={m.local ?? ''} style={{ width: '100%' }}
-                           onChange={e => cambiar(m.orden, 'local', e.target.value)} /></td>
-                <td><input value={m.visitante ?? ''} style={{ width: '100%' }}
-                           onChange={e => cambiar(m.orden, 'visitante', e.target.value)} /></td>
+                {/* El escudo aparece en cuanto el nombre se reconoce, así que
+                    hace de acuse de recibo mientras se teclea: si sigue
+                    saliendo el redondel con las iniciales, ese equipo no va a
+                    tener imagen en la quiniela. */}
+                <td>
+                  <span className="equipo-editable">
+                    <Escudo nombre={m.local} laeId={m.lae_id_local} />
+                    <input value={m.local ?? ''}
+                           onChange={e => cambiar(m.orden, 'local', e.target.value)} />
+                  </span>
+                </td>
+                <td>
+                  <span className="equipo-editable">
+                    <Escudo nombre={m.visitante} laeId={m.lae_id_visitante} />
+                    <input value={m.visitante ?? ''}
+                           onChange={e => cambiar(m.orden, 'visitante', e.target.value)} />
+                  </span>
+                </td>
                 <td className="num">
                   <input type="number" min="0" value={m.goles_local ?? ''} style={{ width: 46 }}
                          onChange={e => cambiar(m.orden, 'goles_local', e.target.value === '' ? null : +e.target.value)} />
@@ -348,7 +363,7 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
                   {m.orden === 15 ? (
                     <span style={{ color: 'var(--tinta-3)', fontSize: 12.5 }}>No puntúa</span>
                   ) : (
-                    <div style={{ display: 'flex', gap: 3 }}>
+                    <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
                       {['1', 'X', '2'].map(s => (
                         <button key={s} type="button"
                                 onClick={() => cambiar(m.orden, 'signo', m.signo === s ? null : s)}
@@ -361,6 +376,16 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
                           {s}
                         </button>
                       ))}
+                      {/* Lo que implica el marcador. No se rellena el signo
+                          oficial con esto —ese lo publica LAE y es el que
+                          reparte el dinero—, pero sí alimenta la clasificación
+                          en vivo, así que conviene verlo. */}
+                      {!m.signo && signoDeMarcador(m.goles_local, m.goles_visitante) && (
+                        <span className="signo" style={{ marginLeft: 4 }}
+                              title="Deducido del marcador: cuenta para la clasificación en vivo, no para el reparto">
+                          {signoDeMarcador(m.goles_local, m.goles_visitante)}
+                        </span>
+                      )}
                     </div>
                   )}
                 </td>

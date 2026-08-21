@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { normalizarSorteo, normalizarProximo, limpiarSigno, parsearMarcador, fechaMadrid, esFinDeSemana, URLS } from '../scripts/lae.mjs'
+import { normalizarSorteo, normalizarProximo, limpiarSigno, parsearMarcador, fechaMadrid, esFinDeSemana, signoDeMarcador, URLS } from '../scripts/lae.mjs'
 
 const aquí = dirname(fileURLToPath(import.meta.url))
 const sorteoReal = JSON.parse(await readFile(join(aquí, 'fixtures', 'lae-sorteo-1308406028.json'), 'utf8'))
@@ -24,6 +24,45 @@ test('marcadores', () => {
   // Un partido sin jugar o aplazado no trae marcador.
   assert.deepEqual(parsearMarcador(''), { local: null, visitante: null })
   assert.deepEqual(parsearMarcador('Aplazado'), { local: null, visitante: null })
+})
+
+test('el marcador implica un signo, y sin marcador no hay signo', () => {
+  assert.equal(signoDeMarcador(2, 1), '1')
+  assert.equal(signoDeMarcador(0, 3), '2')
+  assert.equal(signoDeMarcador(1, 1), 'X')
+  assert.equal(signoDeMarcador(0, 0), 'X')
+  // Un partido sin jugar o aplazado no deduce nada.
+  assert.equal(signoDeMarcador(null, null), null)
+  assert.equal(signoDeMarcador(2, null), null)
+  assert.equal(signoDeMarcador(null, 2), null)
+})
+
+test('el provisional se deduce del marcador; el oficial NUNCA', () => {
+  // Un partido ya jugado del que LAE todavía no ha publicado el escrutinio:
+  // trae marcador pero el signo viene vacío. Es la ventana —a veces de
+  // horas— en la que la clasificación en vivo tiene que moverse igual.
+  const sinEscrutinio = {
+    id_sorteo: '1', numero: 1, fecha_sorteo: '2026-04-26 22:59:00',
+    partidos: [
+      { posicion: 1, local: 'A', visitante: 'B', signo: '  ', marcador: '2 - 1' },
+      { posicion: 2, local: 'C', visitante: 'D', signo: '  ', marcador: '0 - 0' },
+      { posicion: 3, local: 'E', visitante: 'F', signo: '  ', marcador: '' },
+    ],
+  }
+  const s = normalizarSorteo(sinEscrutinio)
+
+  assert.deepEqual(s.partidos.map(p => p.signo), [null, null, null],
+    'sin escrutinio no puede haber signo oficial: es el que reparte el dinero')
+  assert.deepEqual(s.partidos.map(p => p.signo_provisional), ['1', 'X', null],
+    'el provisional sí sale del marcador, y el partido sin jugar se queda a null')
+  assert.equal(s.completa, false)
+})
+
+test('el Pleno al 15 tampoco deduce signo provisional', () => {
+  const p15 = normalizarSorteo(sorteoReal).partidos.find(p => p.orden === 15)
+  assert.equal(p15.signo, null)
+  assert.equal(p15.signo_provisional, null,
+    'el 15 tiene marcador pero su signo no es un 1/X/2 que puntúe')
 })
 
 test('las horas de LAE son de Madrid, no UTC', () => {
