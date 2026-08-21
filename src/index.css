@@ -272,11 +272,13 @@ tbody tr.podio td { background: linear-gradient(to right, var(--papel-2), transp
 .equipo-derecha { flex-direction: row-reverse; }
 .equipo-nombre { font-weight: 500; }
 
-.escudo {
-  flex: none; border-radius: 50%; object-fit: contain;
-  background: var(--papel-3);
-}
+/* Un escudo es un escudo: alto, con pico, y con su propio fondo transparente.
+   Ni se recorta en círculo ni se le pone una placa detrás; se deja respirar
+   dentro de su caja. El círculo es solo para el avatar de iniciales, que sí
+   necesita un contenedor. */
+.escudo { flex: none; object-fit: contain; }
 .escudo-inicial {
+  border-radius: 50%; background: var(--papel-3);
   border: 1px solid var(--regla-fuerte);
   display: grid; place-items: center;
   font-size: 9px; font-weight: 600; letter-spacing: .02em;

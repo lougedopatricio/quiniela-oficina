@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Trophy } from 'lucide-react'
 import { iniciales, euros, claseDinero } from '../lib/formato.js'
+import { idDeEquipo } from '../lib/equipos.js'
 
 /** Carga asíncrona con estados de carga y error, para no repetirlo en cada pantalla. */
 export function useAsync(fn, deps = []) {
@@ -82,17 +83,21 @@ export const Persona = ({ nombre, mostrarInicial = true }) => (
 )
 
 /**
- * Escudo de un equipo. Busca /escudos/{laeId}.png; si no existe (equipo
- * recién ascendido, o el archivo aún no se ha añadido a public/escudos/)
- * cae en un avatar con las iniciales, igual que hace `Persona` con la gente.
- * Sin `laeId` va directo al avatar, para que la demo (sin ids reales) no
- * pida nunca una imagen que no existe.
+ * Escudo de un equipo. Busca /escudos/{lae_id}.png y, si no lo encuentra, cae
+ * en un avatar con las iniciales igual que hace `Persona` con la gente.
+ *
+ * El id normalmente viene del partido, que lo trae de la ingesta. Cuando no
+ * viene —jornada rellenada a mano, o el modo demo— se resuelve por nombre,
+ * así que el escudo sale igual. Que no se reconozca el equipo es normal cada
+ * vez que asciende alguien nuevo, y por eso el avatar no es un caso de error
+ * sino la otra mitad del componente.
  */
 export const Escudo = ({ nombre, laeId, tamano = 22 }) => {
   const [rota, setRota] = useState(false)
   const estilo = { width: tamano, height: tamano }
+  const id = laeId ?? idDeEquipo(nombre)
 
-  if (!laeId || rota) {
+  if (!id || rota) {
     return (
       <div className="escudo escudo-inicial" style={estilo} title={nombre}>
         {iniciales(nombre)}
@@ -103,7 +108,7 @@ export const Escudo = ({ nombre, laeId, tamano = 22 }) => {
     <img
       className="escudo"
       style={estilo}
-      src={`${import.meta.env.BASE_URL}escudos/${laeId}.png`}
+      src={`${import.meta.env.BASE_URL}escudos/${id}.png`}
       alt=""
       title={nombre}
       loading="lazy"
