@@ -91,7 +91,12 @@ export default function Caja() {
           </label>
           <label style={{ display: 'grid', gap: 4 }}>
             <span className="rotulo">Importe en euros</span>
-            <input value={form.euros} placeholder="5,00" style={{ width: 90 }}
+            {/* type="number" en vez de texto libre: el navegador ya resuelve
+                la ambigüedad coma/punto y descarta un segundo separador antes
+                de que llegue al parseFloat de abajo. Sin min: un "ajuste"
+                puede ser negativo, para corregir un apunte de más. */}
+            <input type="number" inputMode="decimal" step="0.01"
+                   value={form.euros} placeholder="5,00" style={{ width: 90 }}
                    onChange={e => setForm({ ...form, euros: e.target.value })} />
           </label>
           <label style={{ display: 'grid', gap: 4, flex: 1, minWidth: 160 }}>

@@ -40,6 +40,20 @@ export default function Boletos() {
   const yaJuegan = new Set(boletos.map(b => b.player_id))
   const disponibles = jugadores.filter(j => !yaJuegan.has(j.id) || editando?.player_id === j.id)
 
+  // Puntúa si ya hay signos. El caso benigno —"jornada sin liquidar, faltan
+  // signos"— no lanza: recalcularJornada() lo devuelve como dato normal (ver
+  // JornadasAdmin.jsx). Si SÍ lanza es un fallo real, y antes se tragaba
+  // entero: el boleto quedaba guardado o borrado, pero sin avisar de que la
+  // clasificación no se había vuelto a calcular.
+  async function recalcularSinBloquear(txtOk) {
+    try {
+      await recalcularJornada(roundId)
+      setAviso({ tipo: 'ok', txt: txtOk })
+    } catch (e) {
+      setAviso({ tipo: 'error', txt: `${txtOk}, pero no se ha podido recalcular la jornada: ${e.message}` })
+    }
+  }
+
   async function guardar() {
     if (editando.picks.includes('-')) {
       return setAviso({ tipo: 'error', txt: 'La columna tiene huecos: hacen falta los 14 signos.' })
@@ -47,8 +61,8 @@ export default function Boletos() {
     try {
       await guardarBoleto({ ...editando, round_id: roundId })
       setEditando(null)
-      await recalcularJornada(roundId).catch(() => {})   // puntúa si ya hay signos
       refrescar()
+      await recalcularSinBloquear('Boleto guardado')
     } catch (e) { fallo(e) }
   }
 
@@ -56,8 +70,8 @@ export default function Boletos() {
     if (!confirm('¿Borrar este boleto?')) return
     try {
       await borrarBoleto(b.id)
-      await recalcularJornada(roundId).catch(() => {})
       refrescar()
+      await recalcularSinBloquear('Boleto borrado')
     } catch (e) { fallo(e) }
   }
 
