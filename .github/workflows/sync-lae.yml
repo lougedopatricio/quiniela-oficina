@@ -38,8 +38,12 @@ jobs:
 
       - run: npm ci
 
-      - name: Instalar Chromium
-        run: npx playwright install --with-deps chromium
+      # Chrome de verdad, no el Chromium empaquetado: es el primer escalón del
+      # plan de docs/lae.md para cuando Akamai endurece la detección. El
+      # Chromium de Playwright tiene un fingerprint de TLS y unos flags que se
+      # distinguen del navegador real.
+      - name: Instalar Chrome
+        run: npx playwright install --with-deps chrome
 
       - name: Sincronizar
         env:

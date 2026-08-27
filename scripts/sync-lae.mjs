@@ -33,10 +33,30 @@ const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 
 const log = (...a) => console.log('·', ...a)
 
-/** Abre un Chromium real y descarga los dos endpoints desde su contexto. */
+/**
+ * Abre un navegador real y descarga los dos endpoints desde su contexto.
+ *
+ * `channel: 'chrome'` usa el Chrome de verdad en vez del Chromium que trae
+ * Playwright, que se distingue por el fingerprint de TLS. Es el primer escalón
+ * del plan de docs/lae.md. Si no estuviera instalado —correr esto en local sin
+ * `npx playwright install chrome`— se cae al Chromium de siempre en vez de
+ * reventar.
+ */
 async function descargarDeLae() {
-  const browser = await chromium.launch()
-  const ctx = await browser.newContext({ locale: 'es-ES', timezoneId: 'Europe/Madrid' })
+  let browser
+  try {
+    browser = await chromium.launch({ channel: 'chrome' })
+  } catch {
+    log('Chrome no está instalado; se usa el Chromium de Playwright.')
+    browser = await chromium.launch()
+  }
+  const ctx = await browser.newContext({
+    locale: 'es-ES',
+    timezoneId: 'Europe/Madrid',
+    // Un contexto por defecto no manda ni idioma ni un UA coherente con el
+    // navegador que dice ser; esto lo acerca a una visita normal.
+    extraHTTPHeaders: { 'Accept-Language': 'es-ES,es;q=0.9' },
+  })
   const page = await ctx.newPage()
 
   try {
@@ -70,7 +90,21 @@ async function descargarDeLae() {
     }, [URLS.celebrados(desde, hasta), URLS.proximos(3)])
 
     for (const [k, v] of Object.entries(datos)) {
-      if (v.error) throw new Error(`LAE ${k}: ${v.error} ${v.muestra ?? ''}`)
+      if (!v.error) continue
+      // Los dos bloqueos de Akamai no significan lo mismo y no se arreglan
+      // igual, así que el log lo dice en vez de dejar un número suelto.
+      const pista =
+        v.error.includes('403')
+          ? '\n  Akamai está bloqueando la IP del runner de GitHub (rango de datacenter).\n' +
+            '  No se arregla cambiando de navegador ni de cabeceras. Opciones, por coste:\n' +
+            '   1) Pegar los datos a mano desde Redacción → Jornadas (funciona desde tu propia IP).\n' +
+            '   2) Un runner self-hosted en una red doméstica.\n' +
+            '   3) Un proxy residencial.'
+          : v.error.includes('406')
+            ? '\n  406 es estrangulamiento por volumen, no un bloqueo permanente:\n' +
+              '  suele bastar con reintentar más tarde.'
+            : ''
+      throw new Error(`LAE ${k}: ${v.error} ${v.muestra ?? ''}${pista}`)
     }
 
     // LAE devuelve un string con un mensaje cuando no hay resultados.
