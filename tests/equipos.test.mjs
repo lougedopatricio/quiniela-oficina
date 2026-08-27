@@ -94,7 +94,10 @@ test('un equipo desconocido devuelve null y no un id cualquiera', () => {
   // Cada temporada sube alguien que no está en la lista, y las quinielas de
   // verano traen equipos nórdicos: tienen que caer en el avatar de iniciales,
   // nunca en el escudo de otro.
-  for (const nombre of ['Cultural Leonesa', 'Rosenborg', 'Brommapojkarna', '', null, undefined, '   ']) {
+  // Se usan los nórdicos a propósito: los españoles se van añadiendo según
+  // suben, y este test ya se rompió dos veces por usar de ejemplo un equipo
+  // que después entró en la tabla.
+  for (const nombre of ['Rosenborg', 'Brommapojkarna', 'Djurgardens', '', null, undefined, '   ']) {
     assert.equal(idDeEquipo(nombre), null, `"${nombre}" debería no reconocerse`)
   }
 })

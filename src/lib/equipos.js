@@ -86,6 +86,20 @@ const CANONICOS = {
   'leganes': 1151,
   'eldense': 3855,
   'real valladolid': 4432,
+
+  // Resto de Segunda y filiales, con los ids sacados del histórico de LAE
+  // (1.725 partidos desde 2025-02). Los filiales no tienen escudo propio: la
+  // Real Sociedad B y el Celta Fortuna usan el del primer equipo, así que su
+  // archivo es una copia del de arriba.
+  'cordoba': 104,
+  'albacete': 105,
+  'cultural leonesa': 605,
+  'mirandes': 965,
+  'r sociedad b': 1133,      // LAE lo escribió así hasta 2025-10...
+  'real sociedad b': 3536,   // ...y así desde entonces. Dos ids para el mismo club.
+  'andorra': 3319,
+  'racing de ferrol': 3767,
+  'celta fortuna': 4590,
 }
 
 // Cómo escribe LAE cada uno, y las formas en las que un admin con prisa lo
@@ -149,6 +163,17 @@ const VARIANTES = {
   'cd eldense': 'eldense',
   'valladolid': 'real valladolid',
   'r valladolid': 'real valladolid',
+  'cordoba cf': 'cordoba',
+  'albacete balompie': 'albacete',
+  'cd mirandes': 'mirandes',
+  'la cultural': 'cultural leonesa',
+  'fc andorra': 'andorra',
+  'racing ferrol': 'racing de ferrol',
+  'sanse': 'real sociedad b',
+  // OJO: LAE usa TAMBIÉN el id 366 para "Andorra", pero ese cae dentro de su
+  // bloque de selecciones (364 San Marino, 369 Gales, 370 Chipre), así que casi
+  // seguro es el país y no el club. No se mapea: un escudo equivocado es peor
+  // que ninguno, y sin mapear cae en el avatar de iniciales.
 }
 
 /**
