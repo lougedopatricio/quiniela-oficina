@@ -14,6 +14,23 @@ export function limpiarSigno(v) {
   return SIGNOS.has(s) ? s : null
 }
 
+/**
+ * Quita el sufijo de categoría que LAE empezó a poner en agosto de 2026:
+ * "Athletic Club (m)", "Sevilla (m)". Comprobado el 2026-08-27 contra el
+ * endpoint real — el fixture de abril todavía no lo trae, y los dos tienen
+ * que seguir funcionando.
+ *
+ * El "(m)" es ruido: la quiniela es fútbol masculino y lo lleva TODO equipo
+ * español (los extranjeros de las quinielas de verano no lo llevan). Un "(f)"
+ * sí distinguiría un partido de verdad distinto, así que ese se respeta.
+ *
+ * Importa más de lo que parece: con el sufijo pegado, el nombre deja de casar
+ * con la tabla de equipos y ningún escudo se resuelve.
+ */
+export function limpiarNombreEquipo(nombre) {
+  return String(nombre ?? '').replace(/\s*\(m\)\s*$/i, '').trim()
+}
+
 /** `"2 - 1"` → `{ local: 2, visitante: 1 }`. Devuelve nulos si aún no hay marcador. */
 export function parsearMarcador(v) {
   const m = String(v ?? '').match(/^\s*(\d+)\s*-\s*(\d+)\s*$/)
@@ -71,8 +88,8 @@ export function normalizarSorteo(raw) {
     const orden = Number(p.posicion)
     return {
       orden,
-      local: String(p.local ?? '').trim(),
-      visitante: String(p.visitante ?? '').trim(),
+      local: limpiarNombreEquipo(p.local),
+      visitante: limpiarNombreEquipo(p.visitante),
       lae_id_local: p.idLocal ?? null,
       lae_id_visitante: p.idVisitante ?? null,
       kickoff_at: fechaMadrid(p.fecha_completa),
@@ -90,7 +107,15 @@ export function normalizarSorteo(raw) {
 
   return {
     lae_id_sorteo: String(raw.id_sorteo),
-    lae_jornada: raw.numero != null ? Number(raw.numero) : null,
+    // `jornada` es la de liga (2, 3...) y `numero` la del sorteo dentro del año
+    // (47, 48...). Son cosas distintas y este campo es el mismo que rellena
+    // normalizarProximo() leyendo `jornada`, así que se prefiere esa: si no,
+    // dos jornadas seguidas quedaban guardadas como 47 y 3 según por qué
+    // camino hubieran entrado. `jornada` no existía en abril de 2026 —llega
+    // además como texto—, de ahí el respaldo en `numero`.
+    lae_jornada: raw.jornada != null ? Number(raw.jornada)
+               : raw.numero != null ? Number(raw.numero)
+               : null,
     fecha_sorteo: fechaMadrid(raw.fecha_sorteo),
     // Datos de la quiniela nacional. No son nuestro bote, pero quedan bien en
     // la ficha de la jornada.
@@ -118,9 +143,10 @@ export const URLS = {
     `&fechaInicioInclusiva=${desde}&fechaFinInclusiva=${hasta}`,
   // `game_id=LAQU` en este endpoint concreto empezó a dar 406 el 2026-08-16,
   // de forma repetida y reproducible (no un simple bloqueo pasajero de
-  // Akamai). `game_id=TODOS` sí funciona siempre; devuelve todos los
+  // Akamai). El 2026-08-27 volvía a responder 200, así que fue temporal —pero
+  // se mantiene `TODOS`, que no falló ni entonces ni ahora: devuelve todos los
   // productos de LAE mezclados y hay que filtrar `game_id === 'LAQU'` a mano
-  // en quien consuma la respuesta.
+  // en quien consuma la respuesta. No hay nada que ganar volviendo a LAQU.
   proximos: (n = 3) =>
     `https://www.loteriasyapuestas.es/servicios/proximosv3?game_id=TODOS&num=${n}`,
 }

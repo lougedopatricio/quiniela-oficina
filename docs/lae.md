@@ -44,32 +44,53 @@ Es la fuente de verdad para puntuar. Devuelve un array de sorteos:
 
 ```jsonc
 {
-  "id_sorteo": "1308406028",
-  "numero": 28,
-  "fecha_sorteo": "2026-04-26 22:59:00",
-  "premio_bote": "5000000",
-  "combinacion": "X - 1 - 2 - ... - X - 00",   // 14 signos + Pleno al 15
+  "id_sorteo": "1320306047",
+  "numero": 47,                 // ← sorteo del año, NO la jornada de liga
+  "jornada": "2",               // ← esta sí, y llega como texto
+  "temporada": "2026-2027",
+  "fecha_sorteo": "2026-08-23 23:24:00",
+  "premio_bote": "1100000",
+  "combinacion": "2 - X - 2 - ... - 1 - 22",   // 14 signos + Pleno al 15
   "escrutinio": [ /* categorías y ganadores de la quiniela nacional */ ],
   "partidos": [
     {
-      "posicion": 1, "local": "Betis", "visitante": "Real Madrid",
-      "idLocal": 11, "idVisitante": 12,
-      "signo": "X ",            // ← ojo al espacio de relleno
-      "marcador": "1 - 1",
-      "fecha_completa": "2026-04-24 21:00:00"   // ← hora de Madrid, no UTC
+      "posicion": 1,
+      "local": "Athletic Club (m)",   // ← sufijo de categoría desde 08/2026
+      "visitante": "Sevilla (m)",
+      "idLocal": 1, "idVisitante": 17,
+      "signo": "2 ",            // ← ojo al espacio de relleno
+      "marcador": "1 - 3",
+      "fecha_completa": "2026-08-22 17:00:00"   // ← hora de Madrid, no UTC
     }
     // ... 15 en total
   ]
 }
 ```
 
-Dos trampas, las dos cubiertas por tests:
+El `id` numérico de cada equipo (`idLocal`, `idVisitante`) es lo único estable
+que hay: LAE escribe el mismo club de varias formas —`"Racing Santander (m)"`
+y `"Racing De Santander (m)"` conviven en la misma respuesta— pero el id no
+cambia. Por eso los escudos se guardan como `public/escudos/{id}.png`.
+
+Trampas, todas cubiertas por tests:
 
 - **Los signos vienen con relleno**: `"X "`, `"1 "`. Hay que recortar.
 - **La posición 15 es el Pleno al 15** y su `signo` no es un 1/X/2 sino un
   marcador (`"0-0"`). No puede colarse como un decimoquinto acierto.
 - **Las fechas son hora peninsular**, sin zona. Interpretarlas como UTC
   desplazaría todos los horarios una o dos horas según la época del año.
+- **Los nombres de equipo llevan el sufijo `" (m)"`** desde agosto de 2026:
+  `"Athletic Club (m)"`, `"Sevilla (m)"`. Lo lleva todo equipo español; los
+  extranjeros de las quinielas de verano, no. `limpiarNombreEquipo()` lo quita
+  al entrar. Con el sufijo pegado, el nombre deja de casar con la tabla de
+  equipos y **no se resuelve ni un solo escudo**, que es exactamente lo que
+  pasó. Un `"(f)"` sí se respeta: ahí distinguiría un partido distinto.
+- **`numero` y `jornada` no son lo mismo.** `numero` es el sorteo dentro del
+  año (47) y `jornada` la de liga (2). `jornada` apareció en algún momento
+  entre abril y agosto de 2026 —y llega como texto, `"2"`—; es la que
+  corresponde a `lae_jornada`, porque es la que lee `proximosv3`. Antes se
+  guardaba `numero` y el mismo campo significaba una cosa distinta según por
+  qué endpoint hubiera entrado la jornada.
 
 Cuando no hay resultados, la respuesta **no es un array vacío** sino un string
 con un mensaje. Hay que comprobar el tipo antes de iterar.

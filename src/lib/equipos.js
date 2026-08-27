@@ -21,13 +21,27 @@ import { clave } from './texto.js'
  * Quita acentos, puntuación y mayúsculas para que "Alavés", "ALAVES" y
  * "alaves" sean la misma clave.
  *
+ * Y quita el sufijo de categoría que LAE pone desde agosto de 2026
+ * ("Sevilla (m)"). La ingesta ya lo limpia al entrar
+ * (`limpiarNombreEquipo`), pero esto es la red de debajo: las jornadas que se
+ * sincronizaran entre el cambio de LAE y este arreglo tienen el sufijo
+ * GUARDADO en la base, y así se les resuelve el escudo igual, sin tener que
+ * tocar los datos.
+ *
+ * Aquí se quita cualquier paréntesis final —también un "(f)"— porque un
+ * equipo femenino y uno masculino son el mismo club y llevan el mismo escudo.
+ * La ingesta es más conservadora y respeta el "(f)", que ahí sí distingue dos
+ * partidos distintos en la lista.
+ *
  * Aguanta `null`, que es justo lo que traen los partidos de una jornada recién
  * creada: nacen con los equipos sin rellenar.
  */
-export const normalizarNombre = clave
+export const normalizarNombre = (nombre) =>
+  clave(String(nombre ?? '').replace(/\s*\([^)]*\)\s*$/, ''))
 
 // Nombre canónico -> id de LAE. Los ids salen de las respuestas reales de LAE
-// (tests/fixtures/lae-sorteo-1308406028.json).
+// guardadas en tests/fixtures/, no de ninguna lista de fuera: son los que la
+// propia quiniela usa y no cambian aunque LAE reescriba el nombre.
 const CANONICOS = {
   'athletic club': 1,
   'osasuna': 2,
@@ -59,6 +73,19 @@ const CANONICOS = {
   'real oviedo': 1000,
   'real zaragoza': 3017,
   'racing santander': 3960,
+
+  // Segunda 2026-2027, con los ids leídos de la jornada 2 (fixture
+  // lae-sorteo-1320306047.json). Sin estos, media quiniela salía con el
+  // redondel de iniciales en vez del escudo.
+  'sporting': 107,
+  'tenerife': 108,
+  'cadiz': 110,
+  'eibar': 124,
+  'las palmas': 126,
+  'sabadell': 907,
+  'leganes': 1151,
+  'eldense': 3855,
+  'real valladolid': 4432,
 }
 
 // Cómo escribe LAE cada uno, y las formas en las que un admin con prisa lo
@@ -110,6 +137,18 @@ const VARIANTES = {
   'getafe cf': 'getafe',
   'elche cf': 'elche',
   'girona fc': 'girona',
+  'sporting de gijon': 'sporting',
+  'real sporting': 'sporting',
+  'sporting gijon': 'sporting',
+  'cd tenerife': 'tenerife',
+  'cadiz cf': 'cadiz',
+  'sd eibar': 'eibar',
+  'ud las palmas': 'las palmas',
+  'ce sabadell': 'sabadell',
+  'cd leganes': 'leganes',
+  'cd eldense': 'eldense',
+  'valladolid': 'real valladolid',
+  'r valladolid': 'real valladolid',
 }
 
 /**

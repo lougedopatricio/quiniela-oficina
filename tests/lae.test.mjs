@@ -3,10 +3,14 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { normalizarSorteo, normalizarProximo, limpiarSigno, parsearMarcador, fechaMadrid, esFinDeSemana, signoDeMarcador, URLS } from '../scripts/lae.mjs'
+import { normalizarSorteo, normalizarProximo, limpiarSigno, parsearMarcador, fechaMadrid, esFinDeSemana, signoDeMarcador, limpiarNombreEquipo, URLS } from '../scripts/lae.mjs'
 
 const aquí = dirname(fileURLToPath(import.meta.url))
 const sorteoReal = JSON.parse(await readFile(join(aquí, 'fixtures', 'lae-sorteo-1308406028.json'), 'utf8'))
+// Capturado en agosto de 2026, después de que LAE cambiara el formato: los
+// nombres llevan " (m)" y hay un campo `jornada` que antes no existía. Los dos
+// fixtures se prueban a la vez porque el parser tiene que aguantar los dos.
+const sorteoNuevo = JSON.parse(await readFile(join(aquí, 'fixtures', 'lae-sorteo-1320306047.json'), 'utf8'))
 
 test('los signos vienen con relleno y hay que limpiarlos', () => {
   assert.equal(limpiarSigno('X '), 'X')
@@ -96,6 +100,60 @@ test('un sorteo real de LAE se normaliza entero', () => {
   // mal o LAE cambió el formato.
   const oficial = sorteoReal.combinacion.split('-').map(x => x.trim()).slice(0, 14)
   assert.deepEqual(s.partidos.filter(p => p.orden <= 14).map(p => p.signo), oficial)
+})
+
+test('el sufijo "(m)" de LAE se quita del nombre del equipo', () => {
+  const s = normalizarSorteo(sorteoNuevo)
+
+  // Tal cual llega: "Athletic Club (m)" vs "Sevilla (m)".
+  assert.equal(s.partidos[0].local, 'Athletic Club')
+  assert.equal(s.partidos[0].visitante, 'Sevilla')
+  assert.equal(s.partidos.find(p => p.orden === 15).local, 'At. Madrid')
+
+  const conSufijo = s.partidos.filter(p => /\(m\)/i.test(p.local + p.visitante))
+  assert.deepEqual(conSufijo, [], 'no puede quedar ningún "(m)" pegado al nombre')
+})
+
+test('un "(f)" sí se respeta: distingue un partido de verdad distinto', () => {
+  // El "(m)" es ruido —lo lleva todo equipo español—, pero un femenino sería
+  // otro encuentro y no puede quedar indistinguible del masculino.
+  assert.equal(limpiarNombreEquipo('Barcelona (m)'), 'Barcelona')
+  assert.equal(limpiarNombreEquipo('Barcelona (f)'), 'Barcelona (f)')
+  assert.equal(limpiarNombreEquipo('  Sevilla (M) '), 'Sevilla')
+  // Los extranjeros de las quinielas de verano nunca lo traen.
+  assert.equal(limpiarNombreEquipo('Rosenborg'), 'Rosenborg')
+  assert.equal(limpiarNombreEquipo(null), '')
+})
+
+test('lae_jornada es la de liga, no la del sorteo dentro del año', () => {
+  // El sorteo 47 del año es la jornada 2 de liga. Guardar 47 aquí dejaba este
+  // campo diciendo una cosa distinta según viniera de buscadorSorteos o de
+  // proximosv3, que lee `jornada`.
+  const s = normalizarSorteo(sorteoNuevo)
+  assert.equal(s.lae_jornada, 2)
+  assert.equal(s.lae_id_sorteo, '1320306047')
+
+  // Un payload viejo, sin `jornada`, sigue cayendo en `numero` como antes.
+  assert.equal(normalizarSorteo(sorteoReal).lae_jornada, 28)
+})
+
+test('el sorteo nuevo de LAE se normaliza entero', () => {
+  const s = normalizarSorteo(sorteoNuevo)
+
+  assert.equal(s.partidos.length, 15)
+  assert.equal(s.completa, true)
+  assert.equal(s.lae_bote_cents, 110000000, '1.100.000 € en céntimos')
+
+  // Misma comprobación cruzada que con el fixture viejo: los signos
+  // normalizados tienen que coincidir con la combinación oficial.
+  const oficial = sorteoNuevo.combinacion.split('-').map(x => x.trim()).slice(0, 14)
+  assert.deepEqual(s.partidos.filter(p => p.orden <= 14).map(p => p.signo), oficial)
+
+  // Un 0-5 es victoria visitante y el parser lo deduce igual que el signo.
+  const elche = s.partidos.find(p => p.local === 'Elche')
+  assert.equal(elche.goles_local, 0)
+  assert.equal(elche.goles_visitante, 5)
+  assert.equal(elche.signo_provisional, '2')
 })
 
 test('el Pleno al 15 se guarda pero nunca como signo puntuable', () => {

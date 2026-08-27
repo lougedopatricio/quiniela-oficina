@@ -1,0 +1,27 @@
+{
+  "_comentario": "Respuesta real de buscadorSorteos capturada el 2026-08-27, jornada 2 de la temporada 2026-2027. Se guarda ADEMÁS del fixture de abril (1308406028) porque LAE cambió el formato entre medias: los nombres de equipo pasaron a llevar el sufijo ' (m)' y apareció el campo 'jornada' junto a 'numero'. Los dos fixtures juntos son lo que ata el parser a las dos formas. No editar a mano: si LAE vuelve a cambiar, recapturar y ver qué tests se rompen (ver docs/lae.md).",
+  "id_sorteo": "1320306047",
+  "numero": 47,
+  "jornada": "2",
+  "temporada": "2026-2027",
+  "fecha_sorteo": "2026-08-23 23:24:00",
+  "premio_bote": "1100000",
+  "combinacion": "2 - X - 2 - 1 - 2 - X - X - 2 - 2 - X - 1 - X - 1 - 1 - 22",
+  "partidos": [
+    { "posicion": 1,  "idLocal": 1,    "local": "Athletic Club (m)", "idVisitante": 17,   "visitante": "Sevilla (m)",          "signo": "2 ",  "marcador": "1 - 3", "fecha_completa": "2026-08-22 17:00:00" },
+    { "posicion": 2,  "idLocal": 19,   "local": "Valencia (m)",      "idVisitante": 111,  "visitante": "Celta (m)",            "signo": "X ",  "marcador": "0 - 0", "fecha_completa": "2026-08-22 19:30:00" },
+    { "posicion": 3,  "idLocal": 9,    "local": "Espanyol (m)",      "idVisitante": 12,   "visitante": "Real Madrid (m)",      "signo": "2 ",  "marcador": "1 - 2", "fecha_completa": "2026-08-22 21:30:00" },
+    { "posicion": 4,  "idLocal": 5,    "local": "Getafe (m)",        "idVisitante": 3960, "visitante": "Racing Santander (m)", "signo": "1 ",  "marcador": "1 - 0", "fecha_completa": "2026-08-23 19:30:00" },
+    { "posicion": 5,  "idLocal": 131,  "local": "Elche (m)",         "idVisitante": 4,    "visitante": "Barcelona (m)",        "signo": "2 ",  "marcador": "0 - 5", "fecha_completa": "2026-08-23 21:30:00" },
+    { "posicion": 6,  "idLocal": 2,    "local": "Osasuna (m)",       "idVisitante": 6,    "visitante": "Levante (m)",          "signo": "X ",  "marcador": "0 - 0", "fecha_completa": "2026-08-24 19:30:00" },
+    { "posicion": 7,  "idLocal": 113,  "local": "Málaga (m)",        "idVisitante": 7,    "visitante": "Deportivo (m)",        "signo": "X ",  "marcador": "1 - 1", "fecha_completa": "2026-08-24 21:30:00" },
+    { "posicion": 8,  "idLocal": 1000, "local": "R. Oviedo (m)",     "idVisitante": 1151, "visitante": "Leganés (m)",          "signo": "2 ",  "marcador": "0 - 1", "fecha_completa": "2026-08-22 17:00:00" },
+    { "posicion": 9,  "idLocal": 836,  "local": "Ceuta (m)",         "idVisitante": 126,  "visitante": "Las Palmas (m)",       "signo": "2 ",  "marcador": "0 - 2", "fecha_completa": "2026-08-22 19:00:00" },
+    { "posicion": 10, "idLocal": 3855, "local": "Eldense (m)",       "idVisitante": 110,  "visitante": "Cádiz (m)",            "signo": "X ",  "marcador": "2 - 2", "fecha_completa": "2026-08-22 21:30:00" },
+    { "posicion": 11, "idLocal": 124,  "local": "Eibar (m)",         "idVisitante": 4432, "visitante": "R. Valladolid (m)",    "signo": "1 ",  "marcador": "1 - 0", "fecha_completa": "2026-08-23 17:00:00" },
+    { "posicion": 12, "idLocal": 130,  "local": "Castellón (m)",     "idVisitante": 907,  "visitante": "Sabadell (m)",         "signo": "X ",  "marcador": "0 - 0", "fecha_completa": "2026-08-23 19:00:00" },
+    { "posicion": 13, "idLocal": 107,  "local": "Sporting (m)",      "idVisitante": 939,  "visitante": "Burgos (m)",           "signo": "1 ",  "marcador": "1 - 0", "fecha_completa": "2026-08-23 19:00:00" },
+    { "posicion": 14, "idLocal": 108,  "local": "Tenerife (m)",      "idVisitante": 18,   "visitante": "Almería (m)",          "signo": "1 ",  "marcador": "1 - 0", "fecha_completa": "2026-08-23 21:30:00" },
+    { "posicion": 15, "idLocal": 3,    "local": "At. Madrid (m)",    "idVisitante": 20,   "visitante": "Villarreal (m)",       "signo": "2-2", "marcador": "2 - 2", "fecha_completa": "2026-08-23 17:00:00" }
+  ]
+}
