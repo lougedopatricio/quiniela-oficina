@@ -351,7 +351,9 @@ export async function getJugadores() {
 export async function getParticipantes() {
   if (MODO_DEMO) {
     return ok(DEMO.jugadores.map(j => ({
-      ...j, email: `${j.alias}@ejemplo.com`, is_admin: j.id === 'p1',
+      ...j, email: `${j.alias}@ejemplo.com`,
+      is_admin: j.id === 'p1' || j.id === 'p2',
+      is_owner: j.id === 'p1',
       activo: true, user_id: j.id === 'p1' ? 'demo' : null, alias_alternativos: [],
     })))
   }

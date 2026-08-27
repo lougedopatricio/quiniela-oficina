@@ -7,10 +7,16 @@ import {
 } from '../../lib/api.js'
 import { useAsync, Cargando, AvisoError, Portada, Seccion, Persona, Dinero } from '../../components/ui.jsx'
 import { fechaCorta } from '../../lib/formato.js'
+import { useSesion } from '../../lib/sesion.js'
+import { MODO_DEMO } from '../../lib/supabase.js'
 
 const VACIO = { nombre: '', alias: '', email: '', alternativos: '' }
 
 export default function Participantes() {
+  // En demo no hay sesión, así que se enseña como dueño para poder ver la
+  // pantalla entera; con base real manda lo que diga la ficha.
+  const sesionReal = useSesion()
+  const sesion = MODO_DEMO ? { ...sesionReal, esDuenyo: true } : sesionReal
   const [recarga, setRecarga] = useState(0)
   const [nuevo, setNuevo] = useState(VACIO)
   const [editando, setEditando] = useState(null)
@@ -241,11 +247,23 @@ export default function Participantes() {
                     <td className="num" style={{ paddingRight: 20 }}><Dinero cents={p.saldo_cents} conSigno /></td>
                     <td style={{ fontSize: 12.5, paddingLeft: 4 }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
-                        <button onClick={() => alternar(p, 'is_admin')}
-                                title="Dar o quitar permisos de administrador"
-                                style={{ padding: '4px 9px' }}>
-                          {p.is_admin ? 'Admin' : 'Jugador'}
-                        </button>
+                        {/* Los roles solo los mueve el dueño. La base lo
+                            impone igual (0014); esto es para no ofrecer un
+                            botón que va a dar error. */}
+                        {p.is_owner ? (
+                          <span className="etiqueta oro" title="El dueño reparte los permisos y nadie puede quitárselos">
+                            Dueño
+                          </span>
+                        ) : (
+                          <button onClick={() => alternar(p, 'is_admin')}
+                                  disabled={!sesion.esDuenyo}
+                                  title={sesion.esDuenyo
+                                    ? 'Dar o quitar permisos de administrador'
+                                    : 'Solo el dueño puede repartir permisos'}
+                                  style={{ padding: '4px 9px' }}>
+                            {p.is_admin ? 'Admin' : 'Jugador'}
+                          </button>
+                        )}
                         <button onClick={() => alternar(p, 'activo')}
                                 title="Un participante inactivo no aparece para nuevas jornadas"
                                 style={{ padding: '4px 9px' }}>

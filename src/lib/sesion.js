@@ -34,7 +34,7 @@ function limpiarFragmentoDeAuth() {
  */
 export function useSesion() {
   const [estado, setEstado] = useState({
-    cargando: !MODO_DEMO, user: null, jugador: null, esAdmin: false, recuperando: false,
+    cargando: !MODO_DEMO, user: null, jugador: null, esAdmin: false, esDuenyo: false, recuperando: false,
   })
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export function useSesion() {
     let vivo = true
 
     const cargarJugador = async (user) => {
-      if (!user) return { user: null, jugador: null, esAdmin: false }
+      if (!user) return { user: null, jugador: null, esAdmin: false, esDuenyo: false }
       // Sin 'email': la columna está deliberadamente fuera del GRANT de
       // authenticated (ver 0007) porque el privilegio de Postgres no es por
       // fila — concederla aquí dejaría a cualquiera leer el correo de
@@ -51,10 +51,18 @@ export function useSesion() {
       // propio correo de quien ha entrado ya está en `user.email`.
       const { data } = await supabase
         .from('players')
-        .select('id, user_id, nombre, alias, avatar_url, is_admin, activo')
+        .select('id, user_id, nombre, alias, avatar_url, is_admin, is_owner, activo')
         .eq('user_id', user.id)
         .maybeSingle()
-      return { user, jugador: data ?? null, esAdmin: !!data?.is_admin }
+      // El dueño manda sobre el administrador, así que también lo es. Igual
+      // que hace is_admin() en la base (0014): si aquí no fuera así, el dueño
+      // no vería el panel que sí puede usar.
+      return {
+        user,
+        jugador: data ?? null,
+        esAdmin: !!(data?.is_admin || data?.is_owner),
+        esDuenyo: !!data?.is_owner,
+      }
     }
 
     supabase.auth.getSession().then(async ({ data }) => {
