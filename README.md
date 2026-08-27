@@ -67,8 +67,9 @@ endpoints en [`docs/lae.md`](docs/lae.md).
 ### 1 · Supabase
 
 1. Crea un proyecto en [supabase.com](https://supabase.com) (plan gratuito).
-2. En el **SQL Editor**, ejecuta en orden los cuatro archivos de
-   `supabase/migrations/`.
+2. En el **SQL Editor**, ejecuta **en orden** todos los archivos de
+   `supabase/migrations/`, del `0001` al último. Cada uno da por hecho el
+   anterior.
 3. Crea la temporada y tu usuario admin:
 
 ```sql
@@ -79,13 +80,12 @@ insert into players (nombre, alias, email, is_admin)
 values ('Tu Nombre', 'tualias', 'tu@empresa.com', true);
 ```
 
-4. Añade al resto de la oficina (sin `is_admin`). Cuando cada uno entre con su
-   correo, enlaza su cuenta:
-
-```sql
-update players p set user_id = u.id
-from auth.users u where u.email = p.email and p.user_id is null;
-```
+4. Añade al resto de la oficina (sin `is_admin`) desde **Redacción →
+   Participantes**. Las cuentas se enlazan solas en cuanto los correos
+   coinciden, den de alta antes o después de que la persona entre por primera
+   vez. Si alguien entra con un correo que no está en la lista, aparece en
+   **Cuentas sin participante** para darle de alta o enlazarlo a una ficha que
+   ya exista.
 
 ### 2 · Variables
 
@@ -139,16 +139,23 @@ persona repetida) y solo importa las correctas.
 npm test
 ```
 
-53 tests. Los que de verdad importan:
+128 tests. Los que de verdad importan:
 
 - **`tests/puntuacion.test.mjs`** — levanta un Postgres real (PGlite, sin Docker),
-  aplica las cuatro migraciones y comprueba el reparto: ganador único, empate a
+  aplica las migraciones y comprueba el reparto: ganador único, empate a
   tres con céntimo sobrante, pleno que revienta el bote, partido aplazado que
   bloquea la liquidación, idempotencia, y que un pago en efectivo sobrevive a un
   recálculo.
 - **`tests/espejo.test.mjs`** — las reglas están implementadas dos veces (PL/pgSQL
   y JS para la previsualización). Este test ejecuta ambas sobre los mismos casos
   y compara céntimo a céntimo, que es como se evita que se separen.
+- **`tests/cara-a-cara.test.mjs`** — misma idea: la ventaja que el cara a cara
+  cuenta en los partidos donde dos columnas discrepan tiene que explicar
+  exactamente la diferencia de aciertos que puntuó la base.
+- **`tests/cuentas.test.mjs`** — que registrarse y darse de alta enganchen en
+  los dos sentidos, que un correo desconocido **no** se cuele como
+  participante, y que la vista de cuentas sueltas no enseñe correos a quien no
+  es administrador.
 - **`tests/lae.test.mjs`** — parsea una respuesta **real** de LAE guardada en
   `tests/fixtures/`. Si LAE cambia el formato, aquí se ve.
 

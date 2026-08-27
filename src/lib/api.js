@@ -373,14 +373,44 @@ export async function getParticipantes() {
   }))
 }
 
-export async function crearParticipante({ nombre, alias, email, alias_alternativos = [] }) {
+export async function crearParticipante({ nombre, alias, email, alias_alternativos = [], user_id = null }) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
   return lanzar(
     await supabase.from('players')
-      .insert({ nombre, alias, email: email || null, alias_alternativos })
+      // `user_id` se pasa solo al dar de alta desde una cuenta ya registrada;
+      // en el alta normal va null y lo rellena el trigger por correo (0012).
+      .insert({ nombre, alias, email: email || null, alias_alternativos, user_id })
       .select('id')   // nunca '*': email no es legible y reventaría la consulta
       .single()
   )
+}
+
+/**
+ * Cuentas que han entrado alguna vez pero no son de ningún participante.
+ *
+ * Pasa por `v_cuentas_sin_ficha` (0012) y no por `auth.users` porque ese
+ * esquema no está expuesto a la API: la vista corre con los permisos de su
+ * propietario y se filtra sola con is_admin(), igual que `v_players_admin`.
+ */
+export async function getCuentasSinFicha() {
+  if (MODO_DEMO) {
+    return ok([{
+      user_id: 'demo-huerfana',
+      email: 'alguien@empresa.com',
+      created_at: new Date(Date.now() - 3 * 864e5).toISOString(),
+      last_sign_in_at: new Date(Date.now() - 864e5).toISOString(),
+    }])
+  }
+  return lanzar(
+    await supabase.from('v_cuentas_sin_ficha').select('*').order('created_at', { ascending: false })
+  )
+}
+
+/** Ata una cuenta ya registrada a una ficha que existía sin ella. */
+export async function vincularCuenta(playerId, userId) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const { error } = await supabase.from('players').update({ user_id: userId }).eq('id', playerId)
+  if (error) throw new Error(error.message)
 }
 
 export async function actualizarParticipante(id, campos) {

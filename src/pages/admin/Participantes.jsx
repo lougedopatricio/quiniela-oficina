@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import { Mail, Trash2, Plus, Check, X } from 'lucide-react'
 import {
   getParticipantes, crearParticipante, actualizarParticipante,
-  borrarParticipante, enviarEnlaceAcceso,
+  borrarParticipante, enviarEnlaceAcceso, getCuentasSinFicha, vincularCuenta,
 } from '../../lib/api.js'
 import { useAsync, Cargando, AvisoError, Portada, Seccion, Persona, Dinero } from '../../components/ui.jsx'
+import { fechaCorta } from '../../lib/formato.js'
 
 const VACIO = { nombre: '', alias: '', email: '', alternativos: '' }
 
@@ -16,6 +17,9 @@ export default function Participantes() {
   const [aviso, setAviso] = useState(null)
 
   const { cargando, error, datos } = useAsync(getParticipantes, [recarga])
+  // En su propia carga: que fallara al leer las cuentas sueltas no debe dejar
+  // sin plantilla a quien solo venía a editar un alias.
+  const cuentas = useAsync(getCuentasSinFicha, [recarga])
 
   if (cargando) return <Cargando filas={5} />
   if (error) return <AvisoError error={error} />
@@ -74,7 +78,30 @@ export default function Participantes() {
     } catch (err) { fallo(err) }
   }
 
+  async function altaDesdeCuenta(cuenta, nombre) {
+    try {
+      await crearParticipante({
+        nombre: nombre.trim(),
+        alias: nombre.trim().toLowerCase().split(/\s+/)[0],
+        email: cuenta.email,
+        user_id: cuenta.user_id,
+      })
+      setAviso({ tipo: 'ok', txt: `${nombre.trim()} ya es participante, con su cuenta enlazada.` })
+      refrescar()
+    } catch (err) { fallo(err) }
+  }
+
+  async function vincularACuenta(cuenta, playerId) {
+    const p = datos.find(x => x.id === playerId)
+    try {
+      await vincularCuenta(playerId, cuenta.user_id)
+      setAviso({ tipo: 'ok', txt: `${cuenta.email} enlazado con ${p?.nombre ?? 'el participante'}.` })
+      refrescar()
+    } catch (err) { fallo(err) }
+  }
+
   const sinVincular = datos.filter(p => !p.user_id).length
+  const huerfanas = cuentas.datos ?? []
 
   return (
     <>
@@ -116,6 +143,44 @@ export default function Participantes() {
           </button>
         </form>
       </Seccion>
+
+      {/* Solo aparece cuando hay algo que resolver: si nadie ha entrado con un
+          correo desconocido, esta sección no tiene por qué ocupar sitio. */}
+      {(cuentas.cargando || huerfanas.length > 0) && (
+        <Seccion
+          titulo="Cuentas sin participante"
+          nota={huerfanas.length ? `${huerfanas.length} por asignar` : undefined}
+          entradilla="Alguien ha entrado con un correo que no está dado de alta. Su cuenta funciona, pero no juega a nada hasta que la asignes: dale de alta como participante nuevo, o enlázala con una ficha que ya existiera."
+        >
+          {cuentas.cargando ? <Cargando filas={2} />
+            : cuentas.error ? <AvisoError error={cuentas.error} />
+            : (
+              <div className="tabla-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Correo</th>
+                      <th style={{ width: 100 }}>Se registró</th>
+                      <th style={{ width: 100 }}>Última vez</th>
+                      <th>Qué hacer con ella</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {huerfanas.map(c => (
+                      <FilaCuenta
+                        key={c.user_id}
+                        cuenta={c}
+                        candidatos={datos.filter(p => !p.user_id)}
+                        alDarDeAlta={altaDesdeCuenta}
+                        alVincular={vincularACuenta}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+        </Seccion>
+      )}
 
       <Seccion titulo="La plantilla"
                nota={sinVincular ? `${sinVincular} sin cuenta enlazada` : 'Todos con cuenta'}>
@@ -229,12 +294,71 @@ export default function Participantes() {
 
       <Seccion titulo="Sobre el acceso">
         <p className="entradilla" style={{ marginTop: 12 }}>
-          No hay contraseñas: se entra con un enlace que llega al correo, así que no hay
-          nada que restablecer. Si alguien pierde el acceso, pulsa el sobre de su fila y
-          le llega uno nuevo. La cuenta se ata a su ficha automáticamente la primera vez
-          que entra, siempre que el correo coincida con el que tenga aquí.
+          Se entra con un enlace que llega al correo. Quien quiera puede ponerse además
+          una contraseña desde su propia pantalla de acceso, y si la olvida la restablece
+          él mismo con «He olvidado mi contraseña» —a ti no te toca hacer nada—. Si
+          alguien pierde el acceso del todo, pulsa el sobre de su fila y le llega un
+          enlace nuevo.
+        </p>
+        <p className="entradilla">
+          La cuenta se ata a su ficha sola en cuanto los correos coinciden, entre antes o
+          después de darle de alta. Si alguien entra con un correo que no está en esta
+          lista, aparecerá arriba en «Cuentas sin participante» para que decidas qué
+          hacer con él.
         </p>
       </Seccion>
     </>
+  )
+}
+
+/**
+ * Una cuenta suelta y las dos salidas que tiene.
+ *
+ * Se pide el nombre en vez de sacarlo del correo: "jrodriguez@empresa.com" no
+ * da un nombre presentable, y este nombre es el que va a salir en la
+ * clasificación delante de toda la oficina.
+ */
+function FilaCuenta({ cuenta, candidatos, alDarDeAlta, alVincular }) {
+  const [nombre, setNombre] = useState('')
+  const [destino, setDestino] = useState('')
+
+  return (
+    <tr>
+      <td style={{ fontFamily: 'var(--mono)', fontSize: 12.5 }}>{cuenta.email}</td>
+      <td style={{ color: 'var(--tinta-3)', fontSize: 12.5 }}>{fechaCorta(cuenta.created_at)}</td>
+      <td style={{ color: 'var(--tinta-3)', fontSize: 12.5 }}>
+        {cuenta.last_sign_in_at ? fechaCorta(cuenta.last_sign_in_at) : '—'}
+      </td>
+      <td>
+        <div style={{ display: 'grid', gap: 8, padding: '4px 0' }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input value={nombre} placeholder="Nombre y apellido" style={{ width: 170 }}
+                   onChange={e => setNombre(e.target.value)} />
+            <button className="principal" disabled={!nombre.trim()}
+                    style={{ padding: '6px 11px' }}
+                    onClick={() => alDarDeAlta(cuenta, nombre)}>
+              <Plus size={13} style={{ verticalAlign: -2, marginRight: 4 }} />Dar de alta
+            </button>
+          </div>
+
+          {candidatos.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ color: 'var(--tinta-3)', fontSize: 12.5 }}>o enlazar con</span>
+              <select value={destino} onChange={e => setDestino(e.target.value)}
+                      style={{ fontSize: 13, padding: '5px 8px' }}>
+                <option value="">Elige a alguien…</option>
+                {candidatos.map(p => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+              <button disabled={!destino} style={{ padding: '6px 11px' }}
+                      onClick={() => alVincular(cuenta, destino)}>
+                Enlazar
+              </button>
+            </div>
+          )}
+        </div>
+      </td>
+    </tr>
   )
 }
