@@ -7,6 +7,7 @@ import Perfil from './pages/Perfil.jsx'
 import Bote from './pages/Bote.jsx'
 import Saldos from './pages/Saldos.jsx'
 import Entrar from './pages/Entrar.jsx'
+import Jugar from './pages/Jugar.jsx'
 import { MODO_DEMO } from './lib/supabase.js'
 import { useSesion, salir, establecerPassword } from './lib/sesion.js'
 import { Cargando } from './components/ui.jsx'
@@ -24,6 +25,7 @@ const Importar      = lazy(() => import('./pages/admin/Importar.jsx'))
 
 const SECCIONES = [
   { a: '/',         txt: 'Portada' },
+  { a: '/jugar',    txt: 'Jugar' },
   { a: '/jornadas', txt: 'Jornadas' },
   { a: '/bote',     txt: 'El bote' },
   { a: '/saldos',   txt: 'Caja' },
@@ -91,6 +93,7 @@ export default function App() {
 
         <Routes>
           <Route path="/"               element={<Clasificacion />} />
+          <Route path="/jugar"          element={<Jugar />} />
           <Route path="/jornadas"       element={<Jornadas />} />
           <Route path="/jornada/:id"    element={<Jornada />} />
           <Route path="/bote"           element={<Bote />} />

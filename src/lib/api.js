@@ -644,6 +644,69 @@ export async function borrarBoleto(id) {
 }
 
 // ---------------------------------------------------------------------------
+// La jornada que se puede jugar ahora
+// ---------------------------------------------------------------------------
+/**
+ * La jornada abierta con sus partidos y, si lo hay, el boleto de quien pregunta.
+ *
+ * Solo una: en la quiniela de la oficina se juega de una en una, y ofrecer dos
+ * a la vez sería una forma cómoda de equivocarse de columna.
+ */
+export async function getJornadaJugable(playerId) {
+  if (MODO_DEMO) {
+    // La demo no tiene ninguna jornada 'abierta' —la última está en juego—,
+    // así que se finge una con el plazo por delante. Si no, esta pantalla solo
+    // se podría ver en su estado "ya no se puede tocar", que es justo el que
+    // no hace falta enseñar.
+    const r = DEMO.rounds.at(-1)
+    return ok({
+      round: {
+        id: r.id, numero: r.numero + 1, precio_cents: r.precio_cents,
+        cierra_at: new Date(Date.now() + 3 * 864e5).toISOString(),
+      },
+      partidos: r.partidos.map(m => ({ ...m, signo: null, signo_provisional: null })),
+      boleto: null,
+    })
+  }
+
+  const round = lanzar(
+    await supabase.from('v_rounds_precio').select('*')
+      .eq('estado', 'abierta').order('numero', { ascending: false }).limit(1).maybeSingle()
+  )
+  if (!round) return null
+
+  const [partidos, boleto] = await Promise.all([
+    supabase.from('matches').select('*').eq('round_id', round.id).order('orden').then(lanzar),
+    supabase.from('bets').select('*')
+      .eq('round_id', round.id).eq('player_id', playerId).maybeSingle().then(lanzar),
+  ])
+  return { round, partidos, boleto }
+}
+
+/**
+ * Guarda la columna de quien está jugando.
+ *
+ * No lleva `player_id` por parámetro a propósito: lo pone quien llama con su
+ * propia ficha, y las policies de 0003 comprueban además que coincida con
+ * `me()` y que el plazo siga abierto —con el reloj de Postgres, no con el del
+ * navegador—. La cuota la apunta sola la base al confirmar (0015).
+ */
+export async function jugarMiBoleto({ round_id, player_id, picks, pleno_local, pleno_visitante }) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const { error } = await supabase.from('bets').upsert(
+    {
+      round_id, player_id, picks,
+      pleno_local: pleno_local || null,
+      pleno_visitante: pleno_visitante || null,
+      estado: 'confirmada',
+      origen: 'web',   // el esquema solo admite excel | web | admin
+    },
+    { onConflict: 'round_id,player_id' }
+  )
+  if (error) throw new Error(error.message)
+}
+
+// ---------------------------------------------------------------------------
 // Caja
 // ---------------------------------------------------------------------------
 /**
