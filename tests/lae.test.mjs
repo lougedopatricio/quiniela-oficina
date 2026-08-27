@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { normalizarSorteo, normalizarProximo, limpiarSigno, parsearMarcador, fechaMadrid, esFinDeSemana, signoDeMarcador, limpiarNombreEquipo, URLS } from '../scripts/lae.mjs'
+import { normalizarSorteo, normalizarProximo, limpiarSigno, parsearMarcador, fechaMadrid, esFinDeSemana, signoDeMarcador, limpiarNombreEquipo, partidosDeJornadaAbierta, URLS, PAGINAS } from '../scripts/lae.mjs'
 
 const aquí = dirname(fileURLToPath(import.meta.url))
 const sorteoReal = JSON.parse(await readFile(join(aquí, 'fixtures', 'lae-sorteo-1308406028.json'), 'utf8'))
@@ -156,6 +156,70 @@ test('el sorteo nuevo de LAE se normaliza entero', () => {
   assert.equal(elche.signo_provisional, '2')
 })
 
+// Los 15 partidos de la jornada 3 de 2026-2027, leídos del DOM de la página
+// donde se juega el 2026-08-27. Es la única fuente que los publica antes de
+// jugarse: buscadorSorteos solo devuelve celebradas y con celebrados=false
+// responde 406.
+const JORNADA_ABIERTA = [
+  'Levante (M) - Betis (M)',
+  'Real Sociedad (M) - Espanyol (M)',
+  'Sevilla (M) - At. Madrid (M)',
+  'Real Madrid (M) - Málaga (M)',
+  'Deportivo (M) - Valencia (M)',
+  'Celta (M) - Athletic Club (M)',
+  'Osasuna (M) - Getafe (M)',
+  'Albacete (M) - R. Oviedo (M)',
+  'Cádiz (M) - R. Valladolid (M)',
+  'Córdoba (M) - Granada (M)',
+  'Athletic Club (F) - Badalona W. (F)',
+  'Eibar (F) - Espanyol (F)',
+  'Alavés (F) - Valencia (F)',
+  'Real Madrid (F) - At. Madrid (F)',
+  'Barcelona (M) - Rayo Vallecano (M)',
+]
+
+test('los 15 partidos de una jornada abierta real se leen enteros', () => {
+  const ps = partidosDeJornadaAbierta(JORNADA_ABIERTA)
+
+  assert.equal(ps.length, 15)
+  assert.equal(ps.filter(p => p.completo).length, 15, 'alguno no se ha sabido partir en dos')
+  assert.deepEqual(ps.map(p => p.orden), Array.from({length:15}, (_,i)=>i+1))
+
+  assert.deepEqual(ps[0], { orden: 1, local: 'Levante', visitante: 'Betis', completo: true })
+  assert.equal(ps[14].local, 'Barcelona')
+  assert.equal(ps[14].visitante, 'Rayo Vallecano')
+})
+
+test('los partidos femeninos no se confunden con los masculinos', () => {
+  // La jornada 3 traía CUATRO femeninos. Si se quitara el "(F)" como se quita
+  // el "(M)", el 4 y el 14 serían los dos "Real Madrid - ..." y no habría
+  // forma de distinguirlos en la tabla.
+  const ps = partidosDeJornadaAbierta(JORNADA_ABIERTA)
+
+  assert.equal(ps[3].local, 'Real Madrid', 'el masculino va sin sufijo')
+  assert.equal(ps[13].local, 'Real Madrid (F)', 'el femenino lo conserva')
+  assert.notEqual(ps[3].local, ps[13].local)
+
+  const femeninos = ps.filter(p => /\(F\)/.test(p.local))
+  assert.equal(femeninos.length, 4)
+})
+
+test('el separador vale con guión normal, guión largo o "vs"', () => {
+  const ps = partidosDeJornadaAbierta(['Betis - Sevilla', 'Betis – Sevilla', 'Betis vs Sevilla'])
+  for (const p of ps) {
+    assert.equal(p.local, 'Betis')
+    assert.equal(p.visitante, 'Sevilla')
+    assert.equal(p.completo, true)
+  }
+})
+
+test('una línea que no es un partido se marca incompleta en vez de colarse', () => {
+  const ps = partidosDeJornadaAbierta(['Levante (M) - Betis (M)', 'Jornada 3', ''])
+  assert.equal(ps[0].completo, true)
+  assert.equal(ps[1].completo, false, '"Jornada 3" no es un enfrentamiento')
+  assert.equal(ps[2].completo, false)
+})
+
 test('el Pleno al 15 se guarda pero nunca como signo puntuable', () => {
   const s = normalizarSorteo(sorteoReal)
   const pleno = s.partidos.find(p => p.orden === 15)
@@ -204,6 +268,16 @@ test('proximosv3 pide TODOS los productos, no solo LAQU', () => {
   // consuma la respuesta tiene que filtrar game_id === 'LAQU' a mano.
   assert.match(URLS.proximos(3), /game_id=TODOS/)
   assert.doesNotMatch(URLS.proximos(3), /game_id=LAQU/)
+})
+
+test('ninguna página apunta a la URL que LAE dejó en 404', () => {
+  // /es/quiniela devolvía 404 (página vacía, título sin resolver) y nadie se
+  // enteraba: los fetch salían igual porque el origen es el mismo, pero el
+  // enlace que veía el administrador no llevaba a ninguna parte.
+  for (const [donde, url] of Object.entries(PAGINAS)) {
+    assert.doesNotMatch(url, /loteriasyapuestas\.es\/es\/quiniela$/, `PAGINAS.${donde} sigue en la URL muerta`)
+    assert.match(url, /^https:\/\//, `PAGINAS.${donde} debería ser absoluta`)
+  }
 })
 
 test('fin de semana distingue la jornada de Liga de las intersemanales', () => {

@@ -115,16 +115,56 @@ GET /servicios/proximosv3?game_id=LAQU&num=3
 pueden sincronizarse solos en vez de fijarlos a mano. Las jornadas lejanas
 traen ambos a `null`: en ese caso no se toca nada.
 
-### Lo que NO existe
+### La jornada abierta: no hay JSON, pero sí DOM
 
-No se ha encontrado ningún endpoint JSON con la **alineación de la jornada
-abierta** (los 14 partidos antes de jugarse). `buscadorSorteos` solo devuelve
-celebradas; `partidosQuiniela`, `detalleSorteo`, `quiniela` y `resultquiniela`
-dan 404. `fechasSorteos` también da 404.
+Comprobado otra vez el **2026-08-27**: sigue sin haber ningún endpoint JSON con
+los 15 partidos de la jornada **abierta**. `buscadorSorteos` solo devuelve
+celebradas y con `celebrados=false` responde 406; `partidosQuiniela`,
+`detalleSorteo` y `fechasSorteosQuiniela` dan 404.
 
-Para la Fase 2 el plan es el editor de admin, que hace falta igualmente para las
-jornadas especiales. Si algún día se quiere automatizar, la vía sería raspar el
-DOM de la página de la quiniela, que carga por JavaScript.
+Pero los partidos **sí están publicados**, en el DOM de la página donde se
+juega:
+
+```
+https://juegos.loteriasyapuestas.es/jugar/la-quiniela/apuesta/
+```
+
+Cada uno es un `.nombre-partido-completo` con el texto `"Local (M) - Visitante (M)"`.
+`partidosDeJornadaAbierta()` los parsea, y el editor de admin trae los 15 de
+una vez pegándolos (rellena el formulario; no guarda hasta que se confirma).
+
+Ojo con dos cosas:
+
+- **Es otro subdominio** (`juegos.`), así que no comparte origen con
+  `/servicios` y el comando de la consola hay que ejecutarlo estando en esa
+  página, no en la de resultados.
+- **Hay partidos femeninos.** La jornada 3 de 2026-2027 traía cuatro, con
+  sufijo `(F)`. Por eso `limpiarNombreEquipo()` quita el `(M)` pero conserva el
+  `(F)`: si no, "Real Madrid (M) – Málaga" y "Real Madrid (F) – At. Madrid"
+  quedarían indistinguibles en la tabla.
+
+### Sobre los 406
+
+El 406 de `proximosv3?game_id=LAQU` estaba anotado como permanente desde el
+2026-08-16. Midiéndolo el 2026-08-27 se ve que es otra cosa: LAQU respondió 200
+al principio de la sesión y 406 al cabo de un rato, y para entonces
+`buscadorSorteos` daba 406 también con la misma llamada que había funcionado
+diez minutos antes, desde la misma página.
+
+Es **Akamai estrangulando por volumen de peticiones**, no un problema del
+`game_id` ni de la página desde la que se llama. La respuesta correcta es
+reintentar más tarde. El cron, que llama unas pocas veces al día, no debería
+verlo casi nunca.
+
+### La página de entrada
+
+`/es/quiniela` —la que usaba el script— devuelve **404** desde algún momento
+anterior al 2026-08-27: una página vacía con el título sin resolver
+(`"... - {1}"`). Los fetch seguían saliendo porque el origen es el mismo y a
+Akamai le da igual, así que el fallo era invisible; lo que sí estaba roto era
+el enlace que se le enseñaba al administrador. Ahora se entra por
+`/es/resultados/quiniela`, que responde 200 con contenido de verdad, y
+`sync-lae.mjs` avisa en el log si esa navegación deja de funcionar.
 
 ## Cómo se recaptura un fixture
 

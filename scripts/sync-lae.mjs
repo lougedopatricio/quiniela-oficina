@@ -18,7 +18,7 @@
 import { chromium } from 'playwright'
 import { createClient } from '@supabase/supabase-js'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { normalizarSorteo, normalizarProximo, URLS, comoAAAAMMDD, esFinDeSemana } from './lae.mjs'
+import { normalizarSorteo, normalizarProximo, URLS, PAGINAS, comoAAAAMMDD, esFinDeSemana } from './lae.mjs'
 
 const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, LAE_DESDE, LAE_HASTA } = process.env
 
@@ -42,9 +42,18 @@ async function descargarDeLae() {
   try {
     // Hay que estar EN el sitio antes de llamar a sus servicios: el fetch sale
     // del propio origen y así no hay problema de CORS ni de referer.
-    await page.goto('https://www.loteriasyapuestas.es/es/quiniela', {
+    //
+    // Se comprueba que la página cargue de verdad. Antes se entraba por
+    // /es/quiniela, que pasó a devolver 404 sin que nadie se enterara: los
+    // fetch seguían saliendo igual —el origen es el mismo— así que el fallo
+    // era invisible. Si LAE vuelve a mover la página, ahora se ve.
+    const resp = await page.goto(PAGINAS.resultados, {
       waitUntil: 'domcontentloaded', timeout: 60_000,
     })
+    if (!resp || !resp.ok()) {
+      log(`AVISO: ${PAGINAS.resultados} respondió ${resp?.status() ?? 'nada'}. ` +
+          'Puede que LAE haya movido la página; se sigue intentando igual.')
+    }
 
     const hasta = LAE_HASTA || comoAAAAMMDD(new Date())
     const desde = LAE_DESDE || comoAAAAMMDD(new Date(Date.now() - 21 * 864e5))

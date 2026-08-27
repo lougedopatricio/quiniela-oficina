@@ -125,6 +125,37 @@ export function normalizarSorteo(raw) {
   }
 }
 
+/**
+ * Los 15 partidos de la jornada ABIERTA, raspados de la página donde se juega.
+ *
+ * Ningún servicio JSON los publica: `buscadorSorteos` solo devuelve celebradas
+ * y con `celebrados=false` responde 406. La única fuente es el DOM de
+ * `PAGINAS.apuesta`, donde cada partido es un `.nombre-partido-completo` con
+ * el texto "Local (M) - Visitante (M)".
+ *
+ * Entra la lista de cadenas ya extraída del DOM —así esto sigue siendo puro y
+ * se puede probar— y sale la misma forma que `normalizarSorteo`, para que el
+ * resto del código no tenga que saber de dónde vino.
+ *
+ * Ojo con el sufijo: la jornada 3 de 2026-2027 traía CUATRO partidos
+ * femeninos, así que el "(F)" no es teórico y hay que conservarlo o
+ * "Real Madrid - Málaga" y "Real Madrid - At. Madrid" se vuelven
+ * indistinguibles.
+ */
+export function partidosDeJornadaAbierta(textos = []) {
+  return textos.map((t, i) => {
+    const limpio = String(t ?? '').replace(/\s+/g, ' ').trim()
+    // El guión separador puede venir como "-", "–" o "vs".
+    const partes = limpio.split(/\s+(?:-|–|vs\.?)\s+/i)
+    return {
+      orden: i + 1,
+      local: limpiarNombreEquipo(partes[0] ?? ''),
+      visitante: limpiarNombreEquipo(partes[1] ?? ''),
+      completo: partes.length === 2 && !!partes[0]?.trim() && !!partes[1]?.trim(),
+    }
+  })
+}
+
 /** Una jornada futura de `proximosv3`: de aquí salen los plazos. */
 export function normalizarProximo(raw) {
   return {
@@ -137,16 +168,39 @@ export function normalizarProximo(raw) {
   }
 }
 
+// Páginas del sitio, no servicios. Hace falta estar EN una de ellas para que
+// el fetch a /servicios salga del propio origen.
+//
+// `/es/quiniela` —la que se usaba— devuelve 404 desde algún momento antes del
+// 2026-08-27: responde una página vacía con el título sin resolver
+// ("... - {1}"). Los fetch seguían saliendo porque el origen es el mismo y a
+// Akamai le da igual que la página sea un 404, pero el enlace que se le
+// enseñaba al administrador no llevaba a ninguna parte.
+export const PAGINAS = {
+  // Resultados oficiales. 200 y con contenido de verdad, comprobado.
+  resultados: 'https://www.loteriasyapuestas.es/es/resultados/quiniela',
+  // Donde se juega. Es el único sitio donde están los 15 partidos de la
+  // jornada ABIERTA, que ningún servicio JSON publica. Ojo: subdominio
+  // distinto (juegos.), así que no comparte origen con los /servicios.
+  apuesta: 'https://juegos.loteriasyapuestas.es/jugar/la-quiniela/apuesta/',
+}
+
 export const URLS = {
   celebrados: (desde, hasta) =>
     `https://www.loteriasyapuestas.es/servicios/buscadorSorteos?game_id=LAQU&celebrados=true` +
     `&fechaInicioInclusiva=${desde}&fechaFinInclusiva=${hasta}`,
-  // `game_id=LAQU` en este endpoint concreto empezó a dar 406 el 2026-08-16,
-  // de forma repetida y reproducible (no un simple bloqueo pasajero de
-  // Akamai). El 2026-08-27 volvía a responder 200, así que fue temporal —pero
-  // se mantiene `TODOS`, que no falló ni entonces ni ahora: devuelve todos los
-  // productos de LAE mezclados y hay que filtrar `game_id === 'LAQU'` a mano
-  // en quien consuma la respuesta. No hay nada que ganar volviendo a LAQU.
+  // `game_id=LAQU` en este endpoint se anotó como 406 permanente el
+  // 2026-08-16. Midiéndolo el 2026-08-27 resultó ser otra cosa: LAQU respondió
+  // 200 al principio de la sesión y 406 al cabo de un rato, y para entonces
+  // /buscadorSorteos daba 406 TAMBIÉN con la llamada que había funcionado diez
+  // minutos antes. O sea: el 406 es Akamai estrangulando por volumen, no un
+  // problema del game_id.
+  //
+  // Se mantiene `TODOS` igualmente —es lo que hay probado en producción— pero
+  // conviene saber que el 406 va a volver de vez en cuando pase lo que pase, y
+  // que la respuesta correcta es reintentar más tarde, no cambiar el
+  // parámetro. Devuelve todos los productos mezclados: hay que filtrar
+  // `game_id === 'LAQU'` en quien consuma la respuesta.
   proximos: (n = 3) =>
     `https://www.loteriasyapuestas.es/servicios/proximosv3?game_id=TODOS&num=${n}`,
 }

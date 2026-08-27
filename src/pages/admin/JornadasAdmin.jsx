@@ -6,7 +6,7 @@ import {
 } from '../../lib/api.js'
 import { useAsync, Cargando, AvisoError, Portada, Seccion, Vacio, Escudo } from '../../components/ui.jsx'
 import { euros, fechaCorta } from '../../lib/formato.js'
-import { signoDeMarcador } from '../../../scripts/lae.mjs'
+import { signoDeMarcador, PAGINAS, partidosDeJornadaAbierta } from '../../../scripts/lae.mjs'
 
 const ESTADOS = ['borrador', 'abierta', 'cerrada', 'en_juego', 'finalizada']
 
@@ -222,9 +222,9 @@ function PegarDatosLae({ alGuardar }) {
           <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, color: 'var(--tinta-2)', display: 'grid', gap: 6 }}>
             <li>
               Abre{' '}
-              <a href="https://www.loteriasyapuestas.es/es/quiniela" target="_blank" rel="noreferrer"
+              <a href={PAGINAS.resultados} target="_blank" rel="noreferrer"
                  style={{ color: 'var(--rojo)', textDecoration: 'underline' }}>
-                loteriasyapuestas.es
+                los resultados de la Quiniela en loteriasyapuestas.es
               </a>{' '}
               en otra pestaña.
             </li>
@@ -266,10 +266,21 @@ function PegarDatosLae({ alGuardar }) {
   )
 }
 
+// Se pega y se ejecuta ESTANDO en la página donde se juega la Quiniela. No
+// puede lanzarse desde aquí ni con fetch: los partidos de la jornada abierta
+// solo están en el DOM de esa página, que además vive en otro subdominio
+// (juegos.), así que ni siquiera comparte origen con /servicios.
+//
+// Imprime una línea por partido, en el orden en que están, que es el orden de
+// la quiniela. Comprobado el 2026-08-27 contra la jornada 3.
+const COMANDO_ABIERTA = `copy([...document.querySelectorAll('.nombre-partido-completo')].map(e=>e.textContent.replace(/\\s+/g,' ').trim()).join('\\n'))`
+
 /** Edición de los 15 partidos: equipos, marcador y signo oficial. */
 function EditorPartidos({ roundId, alGuardar, alFallar }) {
   const [borrador, setBorrador] = useState(null)
   const [guardando, setGuardando] = useState(false)
+  const [pegado, setPegado] = useState('')
+  const [abiertaOpen, setAbiertaOpen] = useState(false)
 
   const { cargando, error, datos } = useAsync(() => getJornada(roundId), [roundId])
 
@@ -286,6 +297,27 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
   // entera: se puede sustituir uno solo y que el resto lo siga trayendo LAE.
   const alternarSustituido = (m) =>
     cambiar(m.orden, 'sustituido_de', m.sustituido_de ? null : `${m.local} – ${m.visitante}`)
+
+  // Rellena los equipos con lo pegado, SIN guardar: quedan en el borrador para
+  // repasarlos y confirmar con "Guardar partidos", igual que hace el
+  // importador de Excel. Un partido sustituido a mano no se toca.
+  function volcarPegado() {
+    const lineas = pegado.split('\n').map(l => l.trim()).filter(Boolean)
+    const leidos = partidosDeJornadaAbierta(lineas)
+    const buenos = leidos.filter(p => p.completo)
+
+    if (buenos.length === 0) {
+      return alFallar(new Error('No se ha reconocido ningún partido. Cada línea tiene que ser "Local - Visitante".'))
+    }
+
+    setBorrador(partidos.map(m => {
+      const nuevo = buenos.find(p => p.orden === m.orden)
+      if (!nuevo || m.sustituido_de) return m
+      return { ...m, local: nuevo.local, visitante: nuevo.visitante }
+    }))
+    setPegado('')
+    setAbiertaOpen(false)
+  }
 
   async function guardar() {
     setGuardando(true)
@@ -304,20 +336,61 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
       titulo={`Partidos de la jornada ${datos.round.numero}`}
       entradilla={
         <>
-          El signo es lo único que puntúa. LAE no publica los equipos de una jornada hasta que
-          se juega, así que hay que copiarlos a mano del boletín oficial —{' '}
-          <a href="https://www.loteriasyapuestas.es/es/quiniela" target="_blank" rel="noreferrer"
+          El signo es lo único que puntúa. Los equipos de la jornada ABIERTA no llegan por
+          la sincronización —ningún servicio JSON de LAE los publica hasta que se juega—,
+          pero sí están a la vista en{' '}
+          <a href={PAGINAS.apuesta} target="_blank" rel="noreferrer"
              style={{ color: 'var(--rojo)', textDecoration: 'underline' }}>
-            ábrelo en otra pestaña
-          </a>. Los signos y marcadores sí llegan solos en cuanto la jornada acaba. Si cambias
-          algún partido por otro tuyo, márcalo como "Sustituido": ese en concreto ya no se
-          tocará solo, pero el resto se sigue sincronizando con LAE.
+            la página donde se juega la Quiniela
+          </a>: ábrela y cópialos aquí. Los signos y marcadores sí llegan solos en cuanto la
+          jornada acaba. Si cambias algún partido por otro tuyo, márcalo como "Sustituido":
+          ese en concreto ya no se tocará solo, pero el resto se sigue sincronizando con LAE.
         </>
       }
       accion={<button className="principal" onClick={guardar} disabled={!borrador || guardando}>
         {guardando ? 'Guardando…' : 'Guardar partidos'}
       </button>}
     >
+      {/* Traer los 15 equipos de la jornada abierta de una vez, en vez de
+          teclearlos uno a uno. Rellena la tabla de abajo pero NO guarda: se
+          repasa y se confirma, como en el importador de Excel. */}
+      <div style={{ padding: '12px 0', borderBottom: '1px solid var(--regla)', marginBottom: 4 }}>
+        <button onClick={() => setAbiertaOpen(o => !o)} style={{ fontSize: 12.5 }}>
+          {abiertaOpen ? 'Ocultar' : 'Traer los equipos de LAE de una vez'}
+        </button>
+
+        {abiertaOpen && (
+          <div style={{ display: 'grid', gap: 12, marginTop: 14, maxWidth: 560 }}>
+            <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, color: 'var(--tinta-2)', display: 'grid', gap: 6 }}>
+              <li>
+                Abre{' '}
+                <a href={PAGINAS.apuesta} target="_blank" rel="noreferrer"
+                   style={{ color: 'var(--rojo)', textDecoration: 'underline' }}>
+                  la página donde se juega la Quiniela
+                </a>{' '}
+                y espera a que carguen los 15 partidos.
+              </li>
+              <li>Pulsa F12 y abre la pestaña "Consola".</li>
+              <li>Pega ahí el comando de abajo y pulsa Intro. Copia los partidos al portapapeles.</li>
+              <li>Vuelve aquí y pégalos en el cuadro. Repásalos antes de guardar.</li>
+            </ol>
+
+            <textarea readOnly value={COMANDO_ABIERTA} rows={2}
+                      onFocus={e => e.target.select()}
+                      style={{ fontFamily: 'var(--mono)', fontSize: 11, padding: 8, color: 'var(--tinta-2)' }} />
+
+            <textarea value={pegado} onChange={e => setPegado(e.target.value)} rows={5}
+                      placeholder={'Levante (M) - Betis (M)\nReal Sociedad (M) - Espanyol (M)\n…'}
+                      style={{ fontFamily: 'var(--mono)', fontSize: 12, padding: 8 }} />
+
+            <button className="principal" onClick={volcarPegado} disabled={!pegado.trim()}
+                    style={{ justifySelf: 'start' }}>
+              Rellenar los equipos
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="tabla-scroll">
         <table>
           <thead>
