@@ -24,7 +24,8 @@ las cabeceras. Consecuencias:
 2. El navegador del admin **tampoco** puede llamar a LAE desde la app: sin CORS
    no hay atajo por cliente.
 3. Hay que estar **en el sitio** antes de llamar a sus servicios: el script
-   navega a `/es/quiniela` y lanza el `fetch` desde ese origen.
+   navega a `/es/resultados/quiniela` (ver `PAGINAS` en `scripts/lae.mjs`) y
+   lanza el `fetch` desde ese origen.
 
 Si algún día endurecen la detección de headless, en orden de coste: `channel:
 'chrome'` en el runner, luego `playwright-extra` con el plugin stealth, y como
