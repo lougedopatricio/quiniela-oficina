@@ -213,11 +213,49 @@ test('el separador vale con guión normal, guión largo o "vs"', () => {
   }
 })
 
+test('el formato numerado de TuLotero da lo mismo que el de LAE', () => {
+  // LAE no numera; TuLotero sí. Las dos fuentes tienen que acabar en la misma
+  // tabla, porque hay jornadas entre semana en las que LAE no deja elegir cuál
+  // se mira y hay que tirar de la otra.
+  const conNumeros = [
+    '1 Levante - Betis',
+    '2. Real Sociedad - Espanyol',
+    '3) Sevilla - At. Madrid',
+    '15 Barcelona - Rayo Vallecano',
+  ]
+  const ps = partidosDeJornadaAbierta(conNumeros)
+
+  assert.equal(ps.length, 4)
+  assert.deepEqual(ps.map(p => p.local), ['Levante', 'Real Sociedad', 'Sevilla', 'Barcelona'])
+  assert.deepEqual(ps.map(p => p.visitante), ['Betis', 'Espanyol', 'At. Madrid', 'Rayo Vallecano'])
+  // El orden lo da la posición en la lista, no el número que traiga escrito:
+  // si se copian solo unos cuantos, siguen siendo el 1, 2, 3...
+  assert.deepEqual(ps.map(p => p.orden), [1, 2, 3, 4])
+})
+
+test('un equipo cuyo nombre empieza por número no pierde el número', () => {
+  // Solo se quita la numeración de cabecera, no un dígito que sea del nombre.
+  const ps = partidosDeJornadaAbierta(['Sarpsborg 08 - Molde'])
+  assert.equal(ps[0].local, 'Sarpsborg 08')
+  assert.equal(ps[0].visitante, 'Molde')
+})
+
+test('las líneas en blanco entre partidos no descolocan el orden', () => {
+  const ps = partidosDeJornadaAbierta(['Levante - Betis', '   ', '', 'Sevilla - At. Madrid'])
+  assert.equal(ps.length, 2)
+  assert.deepEqual(ps.map(p => p.orden), [1, 2])
+  assert.equal(ps[1].local, 'Sevilla')
+})
+
 test('una línea que no es un partido se marca incompleta en vez de colarse', () => {
-  const ps = partidosDeJornadaAbierta(['Levante (M) - Betis (M)', 'Jornada 3', ''])
+  // Copiar con el ratón de TuLotero arrastra cabeceras y textos sueltos. Las
+  // vacías se tiran; las que tienen texto pero no son un enfrentamiento se
+  // quedan marcadas para que la vista previa pueda avisar de cuántas se van a
+  // descartar, en vez de desaparecer sin decir nada.
+  const ps = partidosDeJornadaAbierta(['Levante (M) - Betis (M)', 'Jornada 3', '', '   '])
+  assert.equal(ps.length, 2, 'las líneas en blanco no cuentan')
   assert.equal(ps[0].completo, true)
   assert.equal(ps[1].completo, false, '"Jornada 3" no es un enfrentamiento')
-  assert.equal(ps[2].completo, false)
 })
 
 test('el Pleno al 15 se guarda pero nunca como signo puntuable', () => {

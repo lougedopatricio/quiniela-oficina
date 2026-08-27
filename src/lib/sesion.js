@@ -2,6 +2,25 @@ import { useEffect, useState } from 'react'
 import { supabase, MODO_DEMO } from './supabase.js'
 
 /**
+ * Supabase entrega sus tokens en el FRAGMENTO de la URL
+ * (`#access_token=…&type=recovery`), que es el mismo sitio donde HashRouter
+ * guarda la ruta. Si no se limpia, se queda ahí para siempre: cada recarga
+ * vuelve a verlo, Supabase vuelve a emitir PASSWORD_RECOVERY y la app vuelve a
+ * taparse con la pantalla de contraseña nueva aunque ya se hubiera cambiado.
+ *
+ * Se limpia DESPUÉS de que Supabase haya leído el fragmento —si se hiciera
+ * antes, no habría sesión— y con replaceState, para no dejar el enlace de
+ * recuperación en el historial del navegador.
+ */
+function limpiarFragmentoDeAuth() {
+  if (!/[#&](access_token|refresh_token|type=recovery|error_description)=/.test(window.location.hash)) {
+    return false
+  }
+  window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/`)
+  return true
+}
+
+/**
  * Sesión del usuario y su ficha de jugador.
  *
  * `esAdmin` sirve solo para decidir qué se enseña. NO es una medida de
@@ -39,17 +58,29 @@ export function useSesion() {
     }
 
     supabase.auth.getSession().then(async ({ data }) => {
+      // Ya ha leído el fragmento: se puede quitar de la URL sin perder nada.
+      limpiarFragmentoDeAuth()
       const r = await cargarJugador(data.session?.user ?? null)
-      if (vivo) setEstado({ cargando: false, recuperando: false, ...r })
+      if (vivo) setEstado(e => ({ ...e, cargando: false, ...r }))
     })
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (evento, session) => {
       if (evento === 'PASSWORD_RECOVERY') {
+        limpiarFragmentoDeAuth()
         if (vivo) setEstado(e => ({ ...e, cargando: false, recuperando: true }))
         return
       }
       const r = await cargarJugador(session?.user ?? null)
-      if (vivo) setEstado({ cargando: false, recuperando: false, ...r })
+      // `recuperando` NO se pisa aquí: los eventos de sesión que Supabase emite
+      // justo después de PASSWORD_RECOVERY (SIGNED_IN, INITIAL_SESSION…)
+      // apagarían la pantalla de contraseña nueva a media escritura. Salir sí
+      // la cancela, que es lo único que la cierra sin haber cambiado nada.
+      if (vivo) {
+        setEstado(e => ({
+          ...e, cargando: false, ...r,
+          recuperando: evento === 'SIGNED_OUT' ? false : e.recuperando,
+        }))
+      }
     })
 
     return () => { vivo = false; sub.subscription.unsubscribe() }

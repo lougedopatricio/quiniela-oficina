@@ -143,17 +143,22 @@ export function normalizarSorteo(raw) {
  * indistinguibles.
  */
 export function partidosDeJornadaAbierta(textos = []) {
-  return textos.map((t, i) => {
-    const limpio = String(t ?? '').replace(/\s+/g, ' ').trim()
-    // El guión separador puede venir como "-", "–" o "vs".
-    const partes = limpio.split(/\s+(?:-|–|vs\.?)\s+/i)
-    return {
-      orden: i + 1,
-      local: limpiarNombreEquipo(partes[0] ?? ''),
-      visitante: limpiarNombreEquipo(partes[1] ?? ''),
-      completo: partes.length === 2 && !!partes[0]?.trim() && !!partes[1]?.trim(),
-    }
-  })
+  return textos
+    .map(t => String(t ?? '').replace(/\s+/g, ' ').trim())
+    // Numeración de cabecera: TuLotero enumera los partidos ("1 Levante -
+    // Betis"), LAE no. Se quita para que las dos fuentes den lo mismo.
+    .map(t => t.replace(/^\d{1,2}\s*[.·)-]?\s+/, ''))
+    .filter(Boolean)
+    .map((limpio, i) => {
+      // El separador varía según de dónde se copie: "-", "–", "vs".
+      const partes = limpio.split(/\s+(?:-|–|—|vs\.?)\s+/i)
+      return {
+        orden: i + 1,
+        local: limpiarNombreEquipo(partes[0] ?? ''),
+        visitante: limpiarNombreEquipo(partes[1] ?? ''),
+        completo: partes.length === 2 && !!partes[0]?.trim() && !!partes[1]?.trim(),
+      }
+    })
 }
 
 /** Una jornada futura de `proximosv3`: de aquí salen los plazos. */
@@ -183,6 +188,11 @@ export const PAGINAS = {
   // jornada ABIERTA, que ningún servicio JSON publica. Ojo: subdominio
   // distinto (juegos.), así que no comparte origen con los /servicios.
   apuesta: 'https://juegos.loteriasyapuestas.es/jugar/la-quiniela/apuesta/',
+  // Alternativa para elegir jornada. LAE solo enseña la que está en juego, así
+  // que cuando hay una entre semana por delante no hay forma de llegar a la
+  // del fin de semana; TuLotero sí las lista. Pide cuenta propia, así que la
+  // app no entra ahí: el administrador copia y pega desde su sesión.
+  tulotero: 'https://web.tulotero.es/jugar/quiniela/',
 }
 
 export const URLS = {

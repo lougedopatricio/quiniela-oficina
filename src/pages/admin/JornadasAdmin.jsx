@@ -281,6 +281,7 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
   const [guardando, setGuardando] = useState(false)
   const [pegado, setPegado] = useState('')
   const [abiertaOpen, setAbiertaOpen] = useState(false)
+  const [fuente, setFuente] = useState('lae')
 
   const { cargando, error, datos } = useAsync(() => getJornada(roundId), [roundId])
 
@@ -301,10 +302,14 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
   // Rellena los equipos con lo pegado, SIN guardar: quedan en el borrador para
   // repasarlos y confirmar con "Guardar partidos", igual que hace el
   // importador de Excel. Un partido sustituido a mano no se toca.
+  // Se recalcula al teclear para poder decir cuántos partidos se han entendido
+  // ANTES de tocar la tabla.
+  const vistaPrevia = pegado.trim()
+    ? partidosDeJornadaAbierta(pegado.split('\n'))
+    : []
+
   function volcarPegado() {
-    const lineas = pegado.split('\n').map(l => l.trim()).filter(Boolean)
-    const leidos = partidosDeJornadaAbierta(lineas)
-    const buenos = leidos.filter(p => p.completo)
+    const buenos = vistaPrevia.filter(p => p.completo)
 
     if (buenos.length === 0) {
       return alFallar(new Error('No se ha reconocido ningún partido. Cada línea tiene que ser "Local - Visitante".'))
@@ -360,28 +365,68 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
         </button>
 
         {abiertaOpen && (
-          <div style={{ display: 'grid', gap: 12, marginTop: 14, maxWidth: 560 }}>
-            <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, color: 'var(--tinta-2)', display: 'grid', gap: 6 }}>
-              <li>
-                Abre{' '}
-                <a href={PAGINAS.apuesta} target="_blank" rel="noreferrer"
-                   style={{ color: 'var(--rojo)', textDecoration: 'underline' }}>
-                  la página donde se juega la Quiniela
-                </a>{' '}
-                y espera a que carguen los 15 partidos.
-              </li>
-              <li>Pulsa F12 y abre la pestaña "Consola".</li>
-              <li>Pega ahí el comando de abajo y pulsa Intro. Copia los partidos al portapapeles.</li>
-              <li>Vuelve aquí y pégalos en el cuadro. Repásalos antes de guardar.</li>
-            </ol>
+          <div style={{ display: 'grid', gap: 12, marginTop: 14, maxWidth: 620 }}>
+            <p className="entradilla" style={{ margin: 0 }}>
+              Una línea por partido, en el orden de la quiniela. Da igual de dónde se copie
+              y da igual si vienen numerados: lo que importa es que cada línea sea
+              "Local - Visitante".
+            </p>
 
-            <textarea readOnly value={COMANDO_ABIERTA} rows={2}
-                      onFocus={e => e.target.select()}
-                      style={{ fontFamily: 'var(--mono)', fontSize: 11, padding: 8, color: 'var(--tinta-2)' }} />
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              <button onClick={() => setFuente('lae')} className={fuente === 'lae' ? 'principal' : undefined}
+                      style={{ fontSize: 12.5 }}>Desde LAE</button>
+              <button onClick={() => setFuente('tulotero')} className={fuente === 'tulotero' ? 'principal' : undefined}
+                      style={{ fontSize: 12.5 }}>Desde TuLotero</button>
+            </div>
 
-            <textarea value={pegado} onChange={e => setPegado(e.target.value)} rows={5}
-                      placeholder={'Levante (M) - Betis (M)\nReal Sociedad (M) - Espanyol (M)\n…'}
+            {fuente === 'lae' ? (
+              <>
+                <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, color: 'var(--tinta-2)', display: 'grid', gap: 6 }}>
+                  <li>
+                    Abre{' '}
+                    <a href={PAGINAS.apuesta} target="_blank" rel="noreferrer"
+                       style={{ color: 'var(--rojo)', textDecoration: 'underline' }}>
+                      la página donde se juega la Quiniela
+                    </a>{' '}
+                    y espera a que carguen los 15 partidos.
+                  </li>
+                  <li>Pulsa F12 y abre la pestaña "Consola".</li>
+                  <li>Pega ahí el comando de abajo y pulsa Intro. Copia los partidos al portapapeles.</li>
+                  <li>Vuelve aquí y pégalos en el cuadro. Repásalos antes de guardar.</li>
+                </ol>
+                <textarea readOnly value={COMANDO_ABIERTA} rows={2}
+                          onFocus={e => e.target.select()}
+                          style={{ fontFamily: 'var(--mono)', fontSize: 11, padding: 8, color: 'var(--tinta-2)' }} />
+              </>
+            ) : (
+              <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, color: 'var(--tinta-2)', display: 'grid', gap: 6 }}>
+                <li>
+                  Entra en{' '}
+                  <a href={PAGINAS.tulotero} target="_blank" rel="noreferrer"
+                     style={{ color: 'var(--rojo)', textDecoration: 'underline' }}>
+                    TuLotero
+                  </a>{' '}
+                  con tu cuenta y abre la jornada que quieras. Aquí sí puedes elegir cuál:
+                  es lo que LAE no deja cuando hay una entre semana por delante.
+                </li>
+                <li>
+                  Selecciona los 15 partidos con el ratón y cópialos (Ctrl+C). No hace falta
+                  ningún comando.
+                </li>
+                <li>Pégalos abajo. Si arrastran números o texto de más, se ignoran.</li>
+              </ol>
+            )}
+
+            <textarea value={pegado} onChange={e => setPegado(e.target.value)} rows={6}
+                      placeholder={'Levante - Betis\nReal Sociedad - Espanyol\n…'}
                       style={{ fontFamily: 'var(--mono)', fontSize: 12, padding: 8 }} />
+
+            {vistaPrevia.length > 0 && (
+              <div style={{ fontSize: 12.5, color: 'var(--tinta-2)' }}>
+                Se han reconocido <strong>{vistaPrevia.filter(p => p.completo).length}</strong> partidos
+                {vistaPrevia.some(p => !p.completo) && ' (alguna línea no se ha entendido y se descartará)'}.
+              </div>
+            )}
 
             <button className="principal" onClick={volcarPegado} disabled={!pegado.trim()}
                     style={{ justifySelf: 'start' }}>
