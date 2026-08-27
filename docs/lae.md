@@ -27,10 +27,43 @@ las cabeceras. Consecuencias:
    navega a `/es/resultados/quiniela` (ver `PAGINAS` en `scripts/lae.mjs`) y
    lanza el `fetch` desde ese origen.
 
-Si algún día endurecen la detección de headless, en orden de coste: `channel:
-'chrome'` en el runner, luego `playwright-extra` con el plugin stealth, y como
-último recurso la entrada manual desde el panel de admin —que sigue existiendo
-precisamente para esto.
+## El 403 desde GitHub Actions · MEDIDO, no supuesto
+
+**La sincronización automática no funciona, y no es por el navegador.**
+
+El 2026-08-27, tras revisar Actions: **13 de 13 ejecuciones fallidas**,
+programadas y a mano, todas con el mismo error:
+
+```
+La sincronización ha fallado: LAE celebrados: HTTP 403
+```
+
+Se probó el primer escalón del plan que había escrito aquí —`channel: 'chrome'`
+para usar el Chrome de verdad en vez del Chromium empaquetado, más un
+`Accept-Language` coherente— y **siguió dando 403**. Ese intento está en el
+commit correspondiente; no hace falta repetirlo.
+
+| Desde dónde | Navegador | Resultado |
+|---|---|---|
+| Runner de GitHub Actions | Chromium de Playwright | **403** (×12) |
+| Runner de GitHub Actions | Chrome real + Accept-Language | **403** |
+| IP doméstica | Navegador normal | **200** |
+
+La conclusión es que Akamai bloquea **el rango de IP** de los runners de
+GitHub, que es de datacenter. Cambiar de navegador, de cabeceras o de
+fingerprint no lo va a tocar, así que `playwright-extra` con el plugin stealth
+—el segundo escalón que proponía este documento— tampoco tiene sentido: cambia
+el fingerprint, no la IP.
+
+Lo que sí puede funcionar, por coste:
+
+1. **Pegar los datos a mano** desde Redacción → Jornadas. Sale de la IP del
+   administrador, que no está bloqueada. Es el camino que ya existe y funciona
+   hoy; para la jornada abierta es además el único, porque no hay JSON.
+2. **Un runner self-hosted** en una red doméstica. Es la única forma de
+   recuperar la automatización tal cual estaba pensada.
+3. **Un proxy residencial** delante del fetch. Cuesta dinero y mete un tercero
+   en medio.
 
 ## Endpoints
 
