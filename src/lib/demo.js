@@ -81,6 +81,11 @@ function construir() {
         orden, local, visitante,
         signo: jugado && orden <= 14 ? signo : null,
         signo_provisional: jugado && orden <= 14 ? signo : null,
+        // Como la quiniela oficial: el 15 es el pleno y se acierta con el
+        // marcador. La demo no llega a puntuarlo —sus aciertos están
+        // precalculados— pero así se ve la configuración en el editor.
+        modo_puntuacion: orden === 15 ? 'pleno' : 'normal',
+        exige_resultado: orden === 15,
         estado: jugado ? 'finalizado' : orden === 10 ? 'en_juego' : 'pendiente',
         goles_local: gl,
         goles_visitante: gv,

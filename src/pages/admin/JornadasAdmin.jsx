@@ -299,6 +299,21 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
   const alternarSustituido = (m) =>
     cambiar(m.orden, 'sustituido_de', m.sustituido_de ? null : `${m.local} – ${m.visitante}`)
 
+  // La base solo admite un pleno por jornada (índice único). Se resuelve aquí
+  // en vez de dejar que reviente al guardar: marcar uno nuevo degrada el
+  // anterior a partido normal, que es lo que se quiere decir al cambiarlo.
+  function cambiarModo(m, modo) {
+    setBorrador(partidos.map(x => {
+      if (x.orden === m.orden) {
+        return { ...x, modo_puntuacion: modo, exige_resultado: modo === 'pleno' ? x.exige_resultado : false }
+      }
+      if (modo === 'pleno' && x.modo_puntuacion === 'pleno') {
+        return { ...x, modo_puntuacion: 'normal', exige_resultado: false }
+      }
+      return x
+    }))
+  }
+
   // Rellena los equipos con lo pegado, SIN guardar: quedan en el borrador para
   // repasarlos y confirmar con "Guardar partidos", igual que hace el
   // importador de Excel. Un partido sustituido a mano no se toca.
@@ -445,6 +460,7 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
               <th>Visitante</th>
               <th className="num" style={{ width: 120 }}>Marcador</th>
               <th style={{ width: 130 }}>Signo</th>
+              <th style={{ width: 150 }}>Cómo puntúa</th>
               <th style={{ width: 110 }}>Origen</th>
             </tr>
           </thead>
@@ -478,8 +494,15 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
                          onChange={e => cambiar(m.orden, 'goles_visitante', e.target.value === '' ? null : +e.target.value)} />
                 </td>
                 <td>
-                  {m.orden === 15 ? (
+                  {m.modo_puntuacion === 'no_puntua' ? (
                     <span style={{ color: 'var(--tinta-3)', fontSize: 12.5 }}>No puntúa</span>
+                  ) : m.modo_puntuacion === 'pleno' && m.exige_resultado ? (
+                    // Aquí no decide el signo sino el marcador de arriba, así
+                    // que enseñar los botones 1/X/2 induciría a error.
+                    <span style={{ color: 'var(--tinta-3)', fontSize: 12.5 }}
+                          title="Este pleno se acierta clavando los goles, no el signo">
+                      Por marcador
+                    </span>
                   ) : (
                     <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
                       {['1', 'X', '2'].map(s => (
@@ -506,6 +529,26 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
                       )}
                     </div>
                   )}
+                </td>
+                {/* Por defecto el 15 es el pleno y el resto normales, como la
+                    quiniela oficial, pero se puede cambiar en cualquiera. */}
+                <td>
+                  <div style={{ display: 'grid', gap: 4 }}>
+                    <select value={m.modo_puntuacion ?? 'normal'}
+                            onChange={e => cambiarModo(m, e.target.value)}
+                            style={{ fontSize: 12, padding: '4px 6px' }}>
+                      <option value="normal">Partido normal</option>
+                      <option value="pleno">Pleno (abre el bote)</option>
+                      <option value="no_puntua">No puntúa</option>
+                    </select>
+                    {m.modo_puntuacion === 'pleno' && (
+                      <label style={{ display: 'flex', gap: 5, alignItems: 'center', fontSize: 11.5, color: 'var(--tinta-2)' }}>
+                        <input type="checkbox" checked={!!m.exige_resultado} style={{ width: 'auto' }}
+                               onChange={e => cambiar(m.orden, 'exige_resultado', e.target.checked)} />
+                        Resultado exacto
+                      </label>
+                    )}
+                  </div>
                 </td>
                 <td>
                   {m.orden !== 15 && (

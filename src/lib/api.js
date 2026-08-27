@@ -583,9 +583,14 @@ export async function guardarPartidos(partidos) {
       // El provisional se deduce del marcador que teclea el admin, no se pide
       // aparte: es lo que permite que la tabla del domingo se mueva mientras
       // LAE aún no ha publicado nada. El oficial se queda como esté.
-      signo_provisional: m.orden <= 14
-        ? signoDeMarcador(m.goles_local, m.goles_visitante)
-        : null,
+      //
+      // Se deduce para cualquier partido que puntúe, no solo del 1 al 14: el
+      // 15 puede estar jugándose como uno normal.
+      signo_provisional: m.modo_puntuacion === 'no_puntua'
+        ? null
+        : signoDeMarcador(m.goles_local, m.goles_visitante),
+      modo_puntuacion: m.modo_puntuacion ?? 'normal',
+      exige_resultado: !!m.exige_resultado,
       estado: m.estado,
       sustituido_de: m.sustituido_de || null,
     })),
