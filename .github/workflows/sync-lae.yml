@@ -7,15 +7,27 @@ name: Sincronizar con Loterías (LAE)
 # llamarlo desde la app. La única vía fiable es un Chromium real, y aquí sale
 # gratis. Ver docs/lae.md.
 
+# El cron está DESACTIVADO a propósito, no olvidado.
+#
+# Akamai bloquea el rango de IP de los runners de GitHub: 13 de 13 ejecuciones
+# seguidas terminaron en 403, con Chromium y con Chrome de verdad, mientras el
+# mismo endpoint responde 200 desde una IP doméstica (medido en docs/lae.md).
+# Programarlo solo servía para mandar tres correos de fallo por semana y para
+# que el repo pareciera roto cuando lo que está roto es el acceso.
+#
+# Los horarios de cuando funcionaba se dejan escritos: eran domingo por la
+# tarde/noche y lunes de madrugada —cuando LAE publica el escrutinio— más el
+# miércoles para los plazos de la jornada nueva. Si algún día se resuelve el
+# bloqueo (runner self-hosted o proxy), se descomenta y ya está.
+#
+#  schedule:
+#    - cron: '0 20,21,22,23 * * 0'
+#    - cron: '0 0,8 * * 1'
+#    - cron: '0 9 * * 3'
+#
+# Mientras tanto se dispara a mano, que es lo que hace el botón "Sincronizar
+# con LAE ahora" del panel — por si el bloqueo cede en algún momento.
 on:
-  schedule:
-    # Domingos y lunes por la tarde/noche, que es cuando LAE publica el
-    # escrutinio. El cron de Actions tiene retrasos de cola de varios minutos:
-    # da igual, los signos ya no cambian cuando se publican.
-    - cron: '0 20,21,22,23 * * 0'
-    - cron: '0 0,8 * * 1'
-    # Miércoles, para recoger los plazos (apertura/cierre) de la jornada nueva.
-    - cron: '0 9 * * 3'
   workflow_dispatch:
     inputs:
       desde:
