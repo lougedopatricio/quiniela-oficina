@@ -24,7 +24,10 @@ export default function Jornada() {
 
   const { round, partidos, boletos, resumen } = datos
   const enJuego = round.estado === 'en_juego'
-  const signos = partidos.slice(0, 14).map(m => m.signo ?? m.signo_provisional ?? null)
+  // Los que puntúan esta jornada, que ya no son "los catorce primeros": desde
+  // 0013 el 15 puede contar y cualquiera puede quedarse fuera.
+  const puntuables = partidos.filter(m => m.modo_puntuacion !== 'no_puntua')
+  const signos = puntuables.map(m => m.signo ?? m.signo_provisional ?? null)
   const publicados = signos.filter(Boolean).length
 
   // Mientras la jornada no está liquidada no hay premio repartido, pero sí hay
@@ -45,10 +48,10 @@ export default function Jornada() {
             {round.es_especial && <span className="etiqueta oro">Especial</span>}
           </>
         }
-        titular={titularJornada(round, boletos, resumen)}
+        titular={titularJornada(round, boletos, resumen, puntuables.length)}
         entradilla={
           enJuego
-            ? `Van ${publicados} de 14 partidos resueltos. Lo que ves es provisional: los signos no son oficiales hasta que Loterías publica el escrutinio.`
+            ? `Van ${publicados} de ${puntuables.length} partidos resueltos. Lo que ves es provisional: los signos no son oficiales hasta que Loterías publica el escrutinio.`
             : `Cerrada el ${fechaHora(round.cierra_at)}. ${boletos.length} boleto${boletos.length === 1 ? '' : 's'} en juego.`
         }
       >
@@ -64,8 +67,8 @@ export default function Jornada() {
 
       {resumen.bote_pagado_cents > 0 && (
         <div className="aviso" style={{ marginTop: 22 }}>
-          <strong>Cayó el bote.</strong> Alguien clavó los catorce y se llevó también los{' '}
-          {euros(resumen.bote_pagado_cents)} acumulados. El bote arranca de cero.
+          <strong>Cayó el bote.</strong> Alguien clavó los {puntuables.length} y se llevó
+          también los {euros(resumen.bote_pagado_cents)} acumulados. El bote arranca de cero.
         </div>
       )}
 
@@ -78,7 +81,7 @@ export default function Jornada() {
         <div className="directo">
           <div className="barra">
             <span>Jornada {round.numero} · clasificación provisional</span>
-            <span className="vivo"><span className="punto-vivo" />EN DIRECTO {String(publicados).padStart(2, '0')}/14</span>
+            <span className="vivo"><span className="punto-vivo" />EN DIRECTO {String(publicados).padStart(2, '0')}/{puntuables.length}</span>
           </div>
 
           <div className="marcadores">

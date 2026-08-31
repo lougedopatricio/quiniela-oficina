@@ -11,10 +11,17 @@
 // sobre los mismos casos y compara céntimo a céntimo: tests/espejo.test.mjs
 // ===========================================================================
 
-/** Aciertos de una columna. Solo los 14 primeros: el Pleno al 15 no cuenta. */
+/**
+ * Aciertos de una columna, sobre los signos que se le pasen.
+ *
+ * Cuántos partidos puntúan lo decide quien llama, no esta función: desde 0013
+ * el Pleno al 15 puede contar o no según cómo esté configurada la jornada. Se
+ * mira hasta donde llegue `signos`, así que pasar 14 da el comportamiento de
+ * siempre y pasar 15 incluye el pleno.
+ */
 export function puntuar(picks, signos) {
   let n = 0
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < signos.length; i++) {
     if (signos[i] && picks[i] === signos[i]) n++
   }
   return n
@@ -26,9 +33,12 @@ export function puntuar(picks, signos) {
  * @param {number[]} aciertosPorBoleto  un elemento por boleto confirmado
  * @param {number}   precioCents        precio de la columna
  * @param {number}   boteAntesCents     bote acumulado antes de esta jornada
+ * @param {number}   puntuables         cuántos partidos cuentan esta jornada.
+ *   El bote se abre acertándolos TODOS. Por defecto 14, que es la jornada de
+ *   siempre; con el Pleno al 15 activo son 15 y hace falta acertarlo también.
  * @returns reparto en céntimos, con los índices de los boletos ganadores
  */
-export function liquidar(aciertosPorBoleto, precioCents, boteAntesCents = 0) {
+export function liquidar(aciertosPorBoleto, precioCents, boteAntesCents = 0, puntuables = 14) {
   const boletos = aciertosPorBoleto.length
   if (boletos === 0) {
     return { boletos: 0, recaudacion: 0, premio: 0, alBote: 0, botePagado: 0, max: null, ganadores: [], reparto: [] }
@@ -43,9 +53,10 @@ export function liquidar(aciertosPorBoleto, precioCents, boteAntesCents = 0) {
     .map((a, i) => (a === max ? i : -1))
     .filter(i => i >= 0)
 
-  // Un 14/14 se lleva además el bote entero, incluido el aporte de esta misma
-  // jornada, y el bote queda a cero.
-  const botePagado = max === 14 ? boteAntesCents + alBote : 0
+  // Acertarlo TODO se lleva además el bote entero, incluido el aporte de esta
+  // misma jornada, y el bote queda a cero. "Todo" son los partidos que
+  // puntúan: 14 en una jornada normal, 15 si el pleno está activo.
+  const botePagado = max === puntuables ? boteAntesCents + alBote : 0
 
   const total = premio + botePagado
   const base = Math.floor(total / ganadores.length)

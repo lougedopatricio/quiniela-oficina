@@ -81,11 +81,12 @@ function construir() {
         orden, local, visitante,
         signo: jugado && orden <= 14 ? signo : null,
         signo_provisional: jugado && orden <= 14 ? signo : null,
-        // Como la quiniela oficial: el 15 es el pleno y se acierta con el
-        // marcador. La demo no llega a puntuarlo —sus aciertos están
-        // precalculados— pero así se ve la configuración en el editor.
-        modo_puntuacion: orden === 15 ? 'pleno' : 'normal',
-        exige_resultado: orden === 15,
+        // En la muestra el 15 no puntúa, porque sus boletos son de 14 signos y
+        // su dinero está repartido con las reglas de 14. Decir aquí que puntúa
+        // dejaría la demo contándose una jornada distinta de la que reparte.
+        // El editor deja cambiarlo igual: eso es lo que hay que poder enseñar.
+        modo_puntuacion: orden === 15 ? 'no_puntua' : 'normal',
+        exige_resultado: false,
         estado: jugado ? 'finalizado' : orden === 10 ? 'en_juego' : 'pendiente',
         goles_local: gl,
         goles_visitante: gv,

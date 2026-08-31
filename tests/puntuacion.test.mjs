@@ -156,8 +156,16 @@ test('un partido aplazado bloquea la liquidación en vez de repartir de más', a
   assert.equal(res.liquidada, false)
   assert.equal(res.motivo, 'faltan_signos')
   assert.equal(res.signos_publicados, 13)
-  assert.equal(await saldo(db, players.ana), 0, 'no se ha cobrado ninguna cuota')
   assert.equal(await bote(db, seasonId), 0)
+
+  // La cuota SÍ está cobrada: desde 0015 se apunta al jugar el boleto, no al
+  // liquidar. Lo que no puede haber es premio ni movimiento de bote mientras
+  // falte un signo, que es lo que este test vigila.
+  assert.equal(await saldo(db, players.ana), -200, 'la cuota se cobró al jugar')
+  const { rows: premios } = await db.query(
+    `select 1 from ledger where round_id = $1 and tipo = 'premio'`, [r]
+  )
+  assert.equal(premios.length, 0, 'no se puede repartir premio con un partido sin resolver')
 
   // Llega el signo que faltaba y se liquida sola.
   await db.query(`update matches set signo = '1' where round_id = $1 and orden = 7`, [r])

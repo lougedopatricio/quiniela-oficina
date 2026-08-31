@@ -72,7 +72,7 @@ export default function Perfil() {
           <Destacado rotulo="Saldo" valor={euros(saldo_cents)}
                      tono={saldo_cents < 0 ? 'acento' : undefined}
                      nota={saldo_cents < 0 ? 'Pendiente de pagar' : 'A favor'} />
-          <Destacado rotulo="Mejor jornada" valor={mejor} nota="de 14 posibles" />
+          <Destacado rotulo="Mejor jornada" valor={mejor} nota="en una jornada" />
           <Destacado rotulo="Jornadas ganadas" valor={victorias}
                      nota={victorias ? 'Con premio en el bolsillo' : 'Todavía ninguna'} />
         </div>

@@ -57,16 +57,28 @@ test('la ventaja en los partidos discrepantes explica la diferencia de aciertos'
   assert.equal(pares, 10)
 })
 
-test('el Pleno al 15 no entra en la comparación', () => {
-  // Aunque lleguen 15 signos y 15 picks, solo se miran los 14 que puntúan.
+test('se comparan los partidos que se le dan, ni uno más', () => {
+  // Quién puntúa lo decide la jornada (0013), así que la función no lo
+  // adivina: compara exactamente los signos que recibe. Filtrar los que no
+  // cuentan es trabajo de quien llama —CaraACara los quita mirando
+  // modo_puntuacion—, porque es el único que sabe cómo está configurada.
   const quince = [...SIGNOS, '1']
   const iguales = [...columnaCon(SIGNOS, 14), '1']
   const distintoSoloEnEl15 = [...columnaCon(SIGNOS, 14), '2']
 
-  const c = compararColumnas(quince, iguales, distintoSoloEnEl15)
-  assert.equal(c.filas.length, PUNTUAN)
-  assert.equal(c.discrepan, 0)
-  assert.equal(c.ventaja, 0)
+  // Con los 15: el decimoquinto cuenta y la discrepancia aparece.
+  const conPleno = compararColumnas(quince, iguales, distintoSoloEnEl15)
+  assert.equal(conPleno.filas.length, 15)
+  assert.equal(conPleno.puntuables, 15)
+  assert.equal(conPleno.discrepan, 1)
+  assert.equal(conPleno.ventaja, 1, 'el que puso el signo bueno saca ventaja')
+
+  // Con solo los 14: el decimoquinto ni se mira, como en una jornada donde no
+  // puntúa.
+  const sinPleno = compararColumnas(SIGNOS, iguales, distintoSoloEnEl15)
+  assert.equal(sinPleno.filas.length, PUNTUAN)
+  assert.equal(sinPleno.discrepan, 0)
+  assert.equal(sinPleno.ventaja, 0)
 })
 
 test('columnas idénticas no dan ventaja a nadie', () => {

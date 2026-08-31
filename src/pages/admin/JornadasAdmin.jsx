@@ -66,7 +66,7 @@ export default function JornadasAdmin() {
         tipo: 'ok',
         txt: r?.liquidada
           ? `Jornada ${j.numero} liquidada: ${r.ganadores} ganador(es) con ${r.max_aciertos} aciertos, ${euros(r.premio_cents)} de premio.`
-          : `Jornada ${j.numero} sin liquidar (${r?.motivo === 'faltan_signos' ? `solo hay ${r.signos_publicados} de 14 signos` : r?.motivo}).`,
+          : `Jornada ${j.numero} sin liquidar (${r?.motivo === 'faltan_signos' ? `solo hay ${r.signos_publicados} de ${r.puntuables ?? 14} signos` : r?.motivo}).`,
       })
       refrescar()
     } catch (e) { fallo(e) }

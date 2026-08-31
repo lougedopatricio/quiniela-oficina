@@ -1,5 +1,5 @@
 import { PGlite } from '@electric-sql/pglite'
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -22,20 +22,44 @@ export async function nuevaBase() {
 
   await db.exec(`
     create schema if not exists auth;
-    create table auth.users (id uuid primary key default gen_random_uuid(), email text);
+    create table auth.users (
+      id uuid primary key default gen_random_uuid(),
+      email text,
+      created_at timestamptz not null default now(),
+      last_sign_in_at timestamptz
+    );
     create or replace function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
     do $$ begin
       if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon; end if;
       if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated; end if;
+      if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role; end if;
     end $$;
     create publication supabase_realtime;
   `)
 
-  for (const f of ['0001_schema.sql', '0002_vistas.sql', '0003_rls.sql', '0004_puntuacion.sql']) {
+  // TODAS las migraciones, en orden, no solo las cuatro primeras.
+  //
+  // Antes se aplicaban 0001-0004 y ya. Eso dejaba a espejo.test.mjs —cuyo
+  // trabajo es justo impedir que las dos implementaciones de las reglas se
+  // separen— atando reglas.js contra una versión del SQL que ya no es la que
+  // corre. Con 0013 el Pleno al 15 pasó a puntuar y el test ni se enteró,
+  // porque seguía probando la función vieja.
+  //
+  // Se leen del directorio en vez de listarlas a mano para que la próxima
+  // migración entre sola.
+  const archivos = (await readdir(join(raiz, 'supabase', 'migrations')))
+    .filter(f => f.endsWith('.sql'))
+    .sort()
+
+  for (const f of archivos) {
     let sql = await readFile(join(raiz, 'supabase', 'migrations', f), 'utf8')
     // gen_random_uuid() es núcleo desde PG13; pgcrypto solo hace falta en
     // Supabase por cómo tienen empaquetadas las extensiones.
     sql = sql.replace(/create extension if not exists pgcrypto;/i, '')
+    // 0011 monta el botón de sincronizar sobre Vault y pg_net, que son
+    // extensiones de Supabase que aquí no existen y que no tocan ninguna regla
+    // de negocio. Es lo único que se salta.
+    if (f.startsWith('0011')) continue
     try {
       await db.exec(sql)
     } catch (e) {
@@ -66,8 +90,17 @@ export async function sembrarTemporada(db, { precio = 200, alias = ['ana', 'brun
 /**
  * Crea una jornada con sus 15 partidos.
  * `signos` son los 14 que puntúan; `null` = todavía sin publicar (aplazado).
+ *
+ * El 15 se deja SIN PUNTUAR salvo que se pida otra cosa. No es el defecto de
+ * producción —ahí es el pleno, desde 0013— pero sí el contrato con el que se
+ * escribieron los tests del reparto: hablan de 14/14 y de "acertar los 14".
+ * Dejarlo explícito aquí es lo que permite que esos tests sigan diciendo lo
+ * que quieren decir mientras corren contra el SQL de verdad.
+ *
+ * `pleno: true` lo pone como pleno con resultado exigido, para los tests que
+ * sí van a por eso.
  */
-export async function crearJornada(db, seasonId, numero, signos, { estado = 'cerrada' } = {}) {
+export async function crearJornada(db, seasonId, numero, signos, { estado = 'cerrada', pleno = false } = {}) {
   const { rows: [round] } = await db.query(
     `insert into rounds (season_id, numero, estado) values ($1, $2, $3) returning id`,
     [seasonId, numero, estado]
@@ -79,11 +112,10 @@ export async function crearJornada(db, seasonId, numero, signos, { estado = 'cer
       [round.id, i, `Local ${i}`, `Visitante ${i}`, signos[i - 1] ?? null]
     )
   }
-  // El Pleno al 15 existe en la base pero no debe puntuar nunca.
   await db.query(
-    `insert into matches (round_id, orden, local, visitante, signo)
-     values ($1, 15, 'Pleno Local', 'Pleno Visitante', '1')`,
-    [round.id]
+    `insert into matches (round_id, orden, local, visitante, signo, modo_puntuacion, exige_resultado)
+     values ($1, 15, 'Pleno Local', 'Pleno Visitante', '1', $2, $2 = 'pleno')`,
+    [round.id, pleno ? 'pleno' : 'no_puntua']
   )
   return round.id
 }

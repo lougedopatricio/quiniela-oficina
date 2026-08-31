@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Equipo } from './ui.jsx'
-import { compararColumnas, PUNTUAN } from '../lib/comparar.js'
+import { compararColumnas } from '../lib/comparar.js'
 
 // ---------------------------------------------------------------------------
 // Dos columnas, partido a partido.
@@ -23,7 +23,8 @@ export default function CaraACara({ partidos, boletos }) {
   const a = boletos.find(x => x.player_id === izquierda) ?? boletos[0]
   const b = boletos.find(x => x.player_id === derecha) ?? boletos[1]
 
-  const partidosQuePuntuan = partidos.slice(0, PUNTUAN)
+  // Los que puntúan esta jornada, no los catorce primeros: el 15 puede contar.
+  const partidosQuePuntuan = partidos.filter(m => m.modo_puntuacion !== 'no_puntua')
   const signos = partidosQuePuntuan.map(m => m.signo ?? m.signo_provisional ?? null)
 
   const { filas, coinciden, discrepan, ganaA, ganaB, fallanLosDos, sinResolver } =
@@ -43,7 +44,7 @@ export default function CaraACara({ partidos, boletos }) {
       </div>
 
       <p className="entradilla">
-        Coinciden en {coinciden} de los {PUNTUAN} que puntúan
+        Coinciden en {coinciden} de los {partidosQuePuntuan.length} que puntúan
         {discrepan === 0
           ? '. Columnas idénticas: esta jornada no se decide entre ellos.'
           : `, así que la jornada se juega en ${discrepan}.`}

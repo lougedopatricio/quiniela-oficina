@@ -26,7 +26,7 @@ export function titularClasificacion(tabla, jornadasFinalizadas) {
   return `${nombre(primero)} aguanta el liderato`
 }
 
-export function titularJornada(round, boletos, resumen) {
+export function titularJornada(round, boletos, resumen, puntuables = 14) {
   const j = round?.numero
   if (round?.estado === 'en_juego') return `La jornada ${j}, en directo`
   if (!boletos?.length) return `Jornada ${j}: nadie llegó a tiempo`
@@ -34,7 +34,10 @@ export function titularJornada(round, boletos, resumen) {
   const max = boletos[0].aciertos
   const ganadores = boletos.filter(b => b.aciertos === max)
 
-  if (max === 14) {
+  // Pleno es acertarlo TODO, y "todo" depende de la jornada: 14 de siempre, o
+  // 15 con el Pleno al 15 activo. Con el 14 clavado a fuego, una jornada de 15
+  // no habría dado nunca este titular.
+  if (max === puntuables) {
     return ganadores.length === 1
       ? `¡Pleno de ${nombre(ganadores[0])} en la jornada ${j}!`
       : `Pleno compartido en la jornada ${j}`

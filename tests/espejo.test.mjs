@@ -62,3 +62,56 @@ for (const esc of ESCENARIOS) {
     })
   }
 }
+
+// Con el Pleno al 15 activo son QUINCE los que puntúan, y el bote solo se abre
+// acertándolos todos. Sin este caso, el espejo seguía comparando las dos
+// implementaciones sobre jornadas de 14 y no se habría enterado de que el SQL
+// había cambiado de regla en 0013 — que es exactamente lo que pasó.
+for (const [nombre, aciertos, plenoAcertado] of [
+  ['pleno acertado: 15 de 15',        [14, 11, 8], true],
+  ['pleno fallado: se queda en 14',   [14, 11, 8], false],
+  ['nadie cerca del pleno',           [9, 7, 5],   false],
+]) {
+  test(`SQL y JS reparten igual con pleno · ${nombre}`, async () => {
+    const db = await nuevaBase()
+    const alias = aciertos.map((_, i) => `j${i}`)
+    const { seasonId, players } = await sembrarTemporada(db, { precio: 200, alias })
+
+    // Jornada previa para que haya bote que reventar.
+    const r0 = await crearJornada(db, seasonId, 1, TODO_UNOS)
+    for (const a of alias) await apostar(db, r0, players[a], columnaCon(TODO_UNOS, 6))
+    await recalcular(db, r0)
+    const boteAntes = await bote(db, seasonId)
+
+    const r1 = await crearJornada(db, seasonId, 2, TODO_UNOS, { pleno: true })
+    await db.query(
+      `update matches set goles_local = 2, goles_visitante = 1 where round_id = $1 and orden = 15`, [r1]
+    )
+
+    for (const [i, a] of alias.entries()) {
+      // Solo el primero puede llegar al pleno, y solo si toca acertarlo.
+      const acierta = plenoAcertado && i === 0
+      await db.query(
+        `insert into bets (round_id, player_id, picks, pleno_local, pleno_visitante, estado, origen)
+         values ($1, $2, $3, $4, $5, 'confirmada', 'admin')`,
+        [r1, players[a], columnaCon(TODO_UNOS, aciertos[i]), acierta ? '2' : '0', acierta ? '1' : '0']
+      )
+    }
+
+    const sql = await recalcular(db, r1)
+    // Al JS hay que decirle cuántos puntúan y sumarle el pleno a quien lo
+    // acertó: es la misma cuenta que hace acierta() en la base.
+    const js = liquidar(
+      aciertos.map((n, i) => n + (plenoAcertado && i === 0 ? 1 : 0)),
+      200, boteAntes, 15
+    )
+
+    assert.equal(sql.puntuables,        15,               'la jornada puntúa sobre 15')
+    assert.equal(sql.max_aciertos,      js.max,           'máximo de aciertos')
+    assert.equal(sql.bote_pagado_cents, js.botePagado,    'bote pagado')
+    assert.equal(sql.premio_cents,      js.premio,        'premio')
+    assert.equal(sql.ganadores,         js.ganadores.length, 'número de ganadores')
+
+    await db.close()
+  })
+}

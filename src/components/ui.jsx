@@ -154,10 +154,16 @@ export const Dinero = ({ cents, conSigno = false }) => (
   </span>
 )
 
-/** La columna de 14 signos, coloreada contra el resultado si ya se conoce. */
+/**
+ * La columna de signos, coloreada contra el resultado si ya se conoce.
+ *
+ * Se pinta hasta donde lleguen los signos que se le pasen, no hasta 14 fijos:
+ * con el Pleno al 15 activo la columna tiene quince y recortarla escondía
+ * justo el que decide el bote.
+ */
 export const TiraSignos = ({ picks = [], signos = [] }) => (
   <div className="tira-signos">
-    {picks.slice(0, 14).map((p, i) => {
+    {picks.slice(0, Math.max(signos.length, 14)).map((p, i) => {
       const s = signos[i]
       const clase = !s ? 'vacio' : p === s ? 'acierto' : 'fallo'
       return <span key={i} className={`signo ${clase}`}>{p}</span>

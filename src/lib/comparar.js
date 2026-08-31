@@ -6,7 +6,13 @@
 // salieron los datos.
 // ===========================================================================
 
-/** Los 14 que puntúan. El Pleno al 15 no da aciertos, así que no entra. */
+/**
+ * Cuántos partidos puntúan cuando no se dice otra cosa.
+ *
+ * Ya no es una constante de la que fiarse: desde 0013 cada jornada decide
+ * cuáles cuentan, así que `compararColumnas` mira los signos que le pasan y
+ * esto solo queda como el tamaño de la quiniela de siempre.
+ */
 export const PUNTUAN = 14
 
 /**
@@ -27,7 +33,8 @@ export function compararColumnas(signos, picksA = [], picksB = []) {
   const filas = []
   let coinciden = 0, ganaA = 0, ganaB = 0, fallanLosDos = 0, sinResolver = 0, resueltos = 0
 
-  for (let i = 0; i < PUNTUAN; i++) {
+  const n = signos.length
+  for (let i = 0; i < n; i++) {
     const signo = signos[i] ?? null
     const pickA = picksA[i] ?? null
     const pickB = picksB[i] ?? null
@@ -56,7 +63,8 @@ export function compararColumnas(signos, picksA = [], picksB = []) {
   return {
     filas,
     coinciden,
-    discrepan: PUNTUAN - coinciden,
+    discrepan: n - coinciden,
+    puntuables: n,
     ganaA,
     ganaB,
     fallanLosDos,

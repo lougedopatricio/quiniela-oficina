@@ -192,7 +192,13 @@ test('un pleno con resultado exigido y sin marcador bloquea la liquidación', as
 
   assert.equal(res.liquidada, false)
   assert.equal(res.motivo, 'faltan_signos')
-  assert.equal(await saldo(db, players.ana), 0, 'no se ha cobrado ninguna cuota')
+
+  // La cuota está cobrada desde que jugó (0015); lo que no puede haber es
+  // premio repartido sin saber si alguien ha hecho pleno.
+  const { rows: premios } = await db.query(
+    `select 1 from ledger where round_id = $1 and tipo = 'premio'`, [r]
+  )
+  assert.equal(premios.length, 0, 'no se puede repartir sin saber si hay pleno')
 })
 
 test('solo puede haber un pleno por jornada', async () => {
