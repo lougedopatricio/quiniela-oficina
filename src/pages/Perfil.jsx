@@ -1,14 +1,16 @@
-﻿import { useParams, Link } from 'react-router-dom'
+﻿import { useState } from 'react'
+import { useParams, Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine, Cell } from 'recharts'
-import { getPerfil } from '../lib/api.js'
+import { getPerfil, actualizarPerfil } from '../lib/api.js'
 import { MODO_DEMO } from '../lib/supabase.js'
 import { useSesion } from '../lib/sesion.js'
 import { jugadorDemo } from '../lib/demo.js'
 import {
   useAsync, Cargando, Vacio, AvisoError,
-  Portada, Destacado, CifraMenor, Seccion, Ganador, Dinero,
+  Portada, Destacado, CifraMenor, Seccion, Ganador, Dinero, Avatar,
 } from '../components/ui.jsx'
-import { euros, fechaCorta, iniciales, decimal } from '../lib/formato.js'
+import CambiarFoto from '../components/CambiarFoto.jsx'
+import { euros, fechaCorta, decimal } from '../lib/formato.js'
 import { titularPerfil } from '../lib/titulares.js'
 
 export default function Perfil() {
@@ -19,18 +21,20 @@ export default function Perfil() {
   // resolvía a null fuera del modo demo, así que pedía iniciar sesión incluso a
   // quien ya la tenía.
   const playerId = id ?? (MODO_DEMO ? jugadorDemo.id : sesion.jugador?.id ?? null)
-  const esPropio = !id
+  // También es el tuyo si entras por el enlace de la clasificación.
+  const esPropio = !id || (MODO_DEMO ? id === jugadorDemo.id : id === sesion.jugador?.id)
+  const [recarga, setRecarga] = useState(0)
 
   const { cargando, error, datos } = useAsync(
     () => (playerId ? getPerfil(playerId) : Promise.resolve(null)),
-    [playerId]
+    [playerId, recarga]
   )
 
-  if (esPropio && sesion.cargando) return <Cargando filas={7} />
+  if (!id && sesion.cargando) return <Cargando filas={7} />
 
   if (!playerId) {
     // Dos situaciones muy distintas que antes se confundían en un solo mensaje.
-    return esPropio && sesion.user
+    return !id && sesion.user
       ? <Vacio>
           Tu cuenta ({sesion.user.email}) todavía no está asociada a ningún
           participante. Pídele al administrador que te dé de alta con ese correo.
@@ -38,7 +42,9 @@ export default function Perfil() {
       : <Vacio>Entra con tu correo para ver tu expediente.</Vacio>
   }
 
-  if (cargando) return <Cargando filas={7} />
+  // Solo la primera vez: al recargar tras guardar el perfil, que no parpadee
+  // la página entera para cambiar un apodo.
+  if (cargando && datos?.jugador?.id !== playerId) return <Cargando filas={7} />
   if (error) return <AvisoError error={error} />
   if (!datos) return <Vacio>No se encuentra a esa persona.</Vacio>
 
@@ -55,9 +61,8 @@ export default function Perfil() {
       <Portada
         antetitulo={
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-            <span className="inicial" style={{ width: 24, height: 24, borderColor: 'var(--rojo)', color: 'var(--rojo)' }}>
-              {iniciales(jugador.nombre)}
-            </span>
+            <Avatar nombre={jugador.nombre} foto={jugador.avatar_url} tamano={24}
+                    style={{ borderColor: 'var(--rojo)', color: 'var(--rojo)' }} />
             Expediente
           </span>
         }
@@ -77,6 +82,10 @@ export default function Perfil() {
                      nota={victorias ? 'Con premio en el bolsillo' : 'Todavía ninguna'} />
         </div>
       </Portada>
+
+      {esPropio && (
+        <EditorPerfil key={jugador.id} jugador={jugador} alGuardar={() => setRecarga(n => n + 1)} />
+      )}
 
       {serie.length > 0 && (
         <Seccion titulo="Jornada a jornada" nota="La línea de puntos es tu media">
@@ -176,5 +185,62 @@ export default function Perfil() {
         </div>
       </Seccion>
     </>
+  )
+}
+
+/**
+ * Lo que cada uno decide de sí mismo: cómo sale en la clasificación y con
+ * qué foto. El nombre real, el alias del Excel y el correo siguen siendo
+ * cosa del administrador.
+ */
+function EditorPerfil({ jugador, alGuardar }) {
+  const [apodo, setApodo] = useState(jugador.apodo ?? '')
+  const [aviso, setAviso] = useState(null)
+  const cambiado = apodo.trim() !== (jugador.apodo ?? '')
+
+  async function guardar(e) {
+    e.preventDefault()
+    setAviso({ txt: 'Guardando…' })
+    try {
+      await actualizarPerfil(jugador.id, { apodo })
+      setAviso({ txt: apodo.trim() ? `Listo: en la clasificación sales como «${apodo.trim()}».` : 'Listo: vuelves a salir con tu nombre.' })
+      alGuardar()
+    } catch (err) {
+      setAviso({ txt: err.message })
+    }
+  }
+
+  const fallo = (err) => setAviso({ txt: err.message })
+  const fotoCambiada = (url) => {
+    setAviso({ txt: url ? 'Foto actualizada.' : 'Foto quitada.' })
+    alGuardar()
+  }
+
+  return (
+    <Seccion titulo="Tu perfil" nota="Así te ve el resto de la oficina">
+      <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', alignItems: 'center', padding: '16px 0' }}>
+        <div style={{ display: 'grid', gap: 10, justifyItems: 'center' }}>
+          <Avatar nombre={jugador.nombre} foto={jugador.avatar_url} tamano={88} />
+          <CambiarFoto playerId={jugador.id} tieneFoto={!!jugador.avatar_url}
+                       alCambiar={fotoCambiada} alFallar={fallo} />
+        </div>
+
+        <form onSubmit={guardar} style={{ display: 'grid', gap: 8, flex: '1 1 240px', maxWidth: 380 }}>
+          <label style={{ display: 'grid', gap: 4 }}>
+            <span className="rotulo">Apodo en la clasificación</span>
+            <input value={apodo} maxLength={24} placeholder={jugador.nombre_real}
+                   onChange={e => setApodo(e.target.value)} />
+          </label>
+          <span style={{ color: 'var(--tinta-3)', fontSize: 12.5 }}>
+            Déjalo vacío para salir como «{jugador.nombre_real}».
+          </span>
+          <button className="principal" type="submit" disabled={!cambiado}
+                  style={{ justifySelf: 'start' }}>
+            Guardar apodo
+          </button>
+        </form>
+      </div>
+      {aviso && <div className="aviso" style={{ marginBottom: 12 }}>{aviso.txt}</div>}
+    </Seccion>
   )
 }

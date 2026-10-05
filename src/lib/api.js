@@ -7,6 +7,7 @@ import { supabase, MODO_DEMO } from './supabase.js'
 import { DEMO, jugadorDemo } from './demo.js'
 import { acumularAciertos } from './evolucion.js'
 import { puestoEn } from './puestos.js'
+import { nombreVisible } from './formato.js'
 // Puro JS sin nada de Node, así que se puede importar tal cual en el
 // navegador: es el mismo parser que usa scripts/sync-lae.mjs, para no tener
 // dos versiones de "qué significa este JSON de LAE" que puedan divergir.
@@ -32,6 +33,13 @@ function lanzar({ data, error }) {
  * Una vez finalizada las dos coinciden —ya está todo oficial—, pero se usa
  * `aciertos` explícitamente, que es la que repartió el dinero.
  */
+/**
+ * Las pantallas públicas pintan `nombre` sin pensar; aquí se decide qué nombre
+ * es ese. Se resuelve en un solo sitio para que la clasificación, la jornada,
+ * la caja y el expediente no puedan discrepar sobre cómo se llama alguien.
+ */
+const conNombreVisible = (fila) => ({ ...fila, nombre: nombreVisible(fila) })
+
 const aciertosVigentes = (score, estadoRonda) =>
   estadoRonda === 'finalizada'
     ? (score?.aciertos ?? 0)
@@ -67,7 +75,7 @@ export async function getClasificacion(seasonId) {
         .filter(j => acc.has(j.id))
         .map(j => {
           const e = acc.get(j.id)
-          return { player_id: j.id, nombre: j.nombre, alias: j.alias, ...e,
+          return { player_id: j.id, nombre: nombreVisible(j), alias: j.alias, avatar_url: j.avatar_url, ...e,
                    media_aciertos: +(e.aciertos_total / e.jornadas_jugadas).toFixed(2) }
         })
         .sort(ordenClasificacion)
@@ -77,7 +85,7 @@ export async function getClasificacion(seasonId) {
   const filas = lanzar(
     await supabase.from('v_clasificacion_temporada').select('*').eq('season_id', seasonId)
   )
-  return [...filas].sort(ordenClasificacion)
+  return filas.map(conNombreVisible).sort(ordenClasificacion)
 }
 
 // Empate a aciertos: manda quien más jornadas ha ganado, y luego la media.
@@ -170,7 +178,8 @@ export async function getJornada(roundId) {
                cierra_at: r.cierra_at, precio_cents: r.precio_cents },
       partidos: r.partidos,
       boletos: r.boletos
-        .map(b => ({ ...b, nombre: porId[b.player_id].nombre, alias: porId[b.player_id].alias }))
+        .map(b => ({ ...b, nombre: nombreVisible(porId[b.player_id]), alias: porId[b.player_id].alias,
+                     avatar_url: porId[b.player_id].avatar_url }))
         .sort((a, b) => b.aciertos - a.aciertos),
       resumen: {
         boletos: r.boletos.length,
@@ -189,7 +198,7 @@ export async function getJornada(roundId) {
   const [round, partidos, boletos, scores] = await Promise.all([
     supabase.from('v_rounds_precio').select('*').eq('id', roundId).single().then(lanzar),
     supabase.from('matches').select('*').eq('round_id', roundId).order('orden').then(lanzar),
-    supabase.from('bets').select('player_id, picks, players(nombre, alias)').eq('round_id', roundId).then(lanzar),
+    supabase.from('bets').select('player_id, picks, players(nombre, alias, apodo, avatar_url)').eq('round_id', roundId).then(lanzar),
     supabase.from('round_scores').select('player_id, aciertos, aciertos_provisional, es_ganador')
       .eq('round_id', roundId).then(lanzar),
   ])
@@ -206,8 +215,9 @@ export async function getJornada(roundId) {
       .map(b => ({
         player_id: b.player_id,
         picks: b.picks,
-        nombre: b.players?.nombre ?? '—',
+        nombre: nombreVisible(b.players),
         alias: b.players?.alias ?? '',
+        avatar_url: b.players?.avatar_url ?? null,
         aciertos: aciertosVigentes(scoreDe[b.player_id], round.estado),
         es_ganador: scoreDe[b.player_id]?.es_ganador ?? false,
         provisional: round.estado === 'en_juego',
@@ -240,14 +250,14 @@ export async function getSaldos() {
       const suyos = DEMO.ledger.filter(l => l.player_id === j.id)
       const suma = (t) => suyos.filter(l => l.tipo === t).reduce((a, l) => a + l.importe_cents, 0)
       return {
-        player_id: j.id, nombre: j.nombre, alias: j.alias,
+        player_id: j.id, nombre: nombreVisible(j), alias: j.alias, avatar_url: j.avatar_url,
         saldo_cents: suyos.reduce((a, l) => a + l.importe_cents, 0),
         cuotas_cents: -suma('cuota'), premios_cents: suma('premio'), pagado_cents: suma('pago'),
       }
     }).sort((a, b) => a.saldo_cents - b.saldo_cents))
   }
   const filas = lanzar(await supabase.from('v_saldos').select('*'))
-  return [...filas].sort((a, b) => a.saldo_cents - b.saldo_cents)
+  return filas.map(conNombreVisible).sort((a, b) => a.saldo_cents - b.saldo_cents)
 }
 
 export async function getPerfil(playerId) {
@@ -269,7 +279,7 @@ export async function getPerfil(playerId) {
       .filter(Boolean)
     const movimientos = DEMO.ledger.filter(l => l.player_id === j.id)
     return ok({
-      jugador: j,
+      jugador: { ...conNombreVisible(j), nombre_real: j.nombre },
       historial,
       movimientos,
       saldo_cents: movimientos.reduce((a, l) => a + l.importe_cents, 0),
@@ -277,7 +287,7 @@ export async function getPerfil(playerId) {
   }
 
   const [jugador, scores, movimientos] = await Promise.all([
-    supabase.from('players').select('id, nombre, alias, avatar_url').eq('id', playerId).single().then(lanzar),
+    supabase.from('players').select('id, nombre, alias, apodo, avatar_url').eq('id', playerId).single().then(lanzar),
     supabase.from('round_scores')
       .select('aciertos, aciertos_provisional, es_ganador, rounds(id, numero, estado)')
       .eq('player_id', playerId).then(lanzar),
@@ -309,7 +319,9 @@ export async function getPerfil(playerId) {
   }
 
   return {
-    jugador,
+    // `apodo` viaja tal cual para el editor del propio perfil; `nombre` ya es
+    // el que se enseña.
+    jugador: { ...conNombreVisible(jugador), nombre_real: jugador.nombre },
     historial: scores
       .map(s => {
         const todos = porRonda.get(s.rounds.id) ?? []
@@ -350,38 +362,46 @@ export async function getJugadores() {
  */
 export async function getParticipantes() {
   if (MODO_DEMO) {
-    return ok(DEMO.jugadores.map(j => ({
-      ...j, email: `${j.alias}@ejemplo.com`,
-      is_admin: j.id === 'p1' || j.id === 'p2',
-      is_owner: j.id === 'p1',
-      activo: true, user_id: j.id === 'p1' ? 'demo' : null, alias_alternativos: [],
-    })))
+    const saldos = await getSaldos()
+    return ok(DEMO.jugadores.map((j, i) => {
+      const columnas = DEMO.rounds.filter(r => r.boletos.some(b => b.player_id === j.id))
+      return {
+        ...j, email: `${j.alias}@ejemplo.com`,
+        is_admin: j.id === 'p1' || j.id === 'p2',
+        is_owner: j.id === 'p1',
+        activo: true, user_id: i < 5 ? `demo-${j.id}` : null, alias_alternativos: [],
+        ultima_entrada: i < 5 ? new Date(Date.now() - (i * 2 + 1) * 36e5 * 7).toISOString() : null,
+        columnas: columnas.length,
+        ultima_columna: columnas.at(-1)?.cierra_at ?? null,
+        juega_abierta: i % 3 !== 2,
+        saldo_cents: saldos.find(s => s.player_id === j.id)?.saldo_cents ?? 0,
+      }
+    }))
   }
 
+  // Todo lo de la ficha —apodo, foto, última entrada, actividad— sale ya de
+  // la vista (0016). Solo el saldo se cruza aparte, para que siga saliendo
+  // del mismo sitio que en la pantalla de caja.
   const [fichas, saldos] = await Promise.all([
     supabase.from('v_players_admin').select('*').order('nombre').then(lanzar),
     getSaldos(),
   ])
-  const alias = Object.fromEntries(
-    lanzar(await supabase.from('players').select('id, alias_alternativos'))
-      .map(p => [p.id, p.alias_alternativos ?? []])
-  )
   const saldoDe = Object.fromEntries(saldos.map(s => [s.player_id, s.saldo_cents]))
 
   return fichas.map(f => ({
     ...f,
-    alias_alternativos: alias[f.id] ?? [],
+    alias_alternativos: f.alias_alternativos ?? [],
     saldo_cents: saldoDe[f.id] ?? 0,
   }))
 }
 
-export async function crearParticipante({ nombre, alias, email, alias_alternativos = [], user_id = null }) {
+export async function crearParticipante({ nombre, apodo = null, alias, email, alias_alternativos = [], user_id = null }) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
   return lanzar(
     await supabase.from('players')
       // `user_id` se pasa solo al dar de alta desde una cuenta ya registrada;
       // en el alta normal va null y lo rellena el trigger por correo (0012).
-      .insert({ nombre, alias, email: email || null, alias_alternativos, user_id })
+      .insert({ nombre, apodo: apodo || null, alias, email: email || null, alias_alternativos, user_id })
       .select('id')   // nunca '*': email no es legible y reventaría la consulta
       .single()
   )
@@ -419,6 +439,88 @@ export async function actualizarParticipante(id, campos) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
   const { error } = await supabase.from('players').update(campos).eq('id', id)
   if (error) throw new Error(error.message)
+}
+
+/**
+ * Lo que cada uno puede tocar de su propia ficha: cómo sale y con qué cara.
+ *
+ * Va por la policy `players_edita_su_perfil` (0003); el guardián de 0014 ya
+ * impide que por aquí se cuele un cambio de alias, correo o permisos.
+ */
+export async function actualizarPerfil(playerId, { apodo, avatar_url }) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const campos = {}
+  if (apodo !== undefined) campos.apodo = apodo?.trim() || null
+  if (avatar_url !== undefined) campos.avatar_url = avatar_url
+  const { error } = await supabase.from('players').update(campos).eq('id', playerId)
+  if (error) {
+    throw new Error(
+      error.code === '23505' ? 'Ese apodo ya lo lleva otra persona.'
+      : error.code === '23514' ? 'El apodo tiene que tener entre 1 y 24 caracteres.'
+      : error.message
+    )
+  }
+}
+
+/**
+ * Sube una foto de perfil y la deja puesta en la ficha.
+ *
+ * Se recorta a un cuadrado pequeño en el propio navegador antes de subirla:
+ * la foto sale a 28 píxeles en la clasificación, y bajarse la de 4 MB del
+ * móvil de cada compañero cada vez que alguien abre la portada no tiene
+ * sentido. Siempre se sobrescribe el mismo archivo (0016 solo deja escribir
+ * en la carpeta propia), y el `?v=` obliga a los navegadores a no quedarse
+ * con la foto anterior en caché.
+ */
+export async function subirFoto(playerId, archivo) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  if (!archivo?.type?.startsWith('image/')) throw new Error('Eso no parece una imagen.')
+
+  const blob = await recortarCuadrado(archivo, 256)
+  const ruta = `${playerId}/foto.jpg`
+  const { error } = await supabase.storage.from('avatares')
+    .upload(ruta, blob, { upsert: true, contentType: 'image/jpeg', cacheControl: '3600' })
+  if (error) throw new Error(error.message)
+
+  const { data } = supabase.storage.from('avatares').getPublicUrl(ruta)
+  const url = `${data.publicUrl}?v=${Date.now()}`
+  await actualizarPerfil(playerId, { avatar_url: url })
+  return url
+}
+
+/** Quita la foto: la ficha vuelve a las iniciales y el archivo se borra. */
+export async function quitarFoto(playerId) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  await actualizarPerfil(playerId, { avatar_url: null })
+  // Si el borrado del archivo falla no pasa nada visible: la ficha ya no
+  // apunta a él, y la próxima foto lo sobrescribe.
+  await supabase.storage.from('avatares').remove([`${playerId}/foto.jpg`])
+}
+
+async function recortarCuadrado(archivo, lado) {
+  const url = URL.createObjectURL(archivo)
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image()
+      i.onload = () => resolve(i)
+      i.onerror = () => reject(new Error('No se ha podido leer la imagen.'))
+      i.src = url
+    })
+    const corte = Math.min(img.naturalWidth, img.naturalHeight)
+    const lienzo = document.createElement('canvas')
+    lienzo.width = lienzo.height = Math.min(lado, corte)
+    lienzo.getContext('2d').drawImage(
+      img,
+      (img.naturalWidth - corte) / 2, (img.naturalHeight - corte) / 2, corte, corte,
+      0, 0, lienzo.width, lienzo.height
+    )
+    return await new Promise((resolve, reject) =>
+      lienzo.toBlob(b => (b ? resolve(b) : reject(new Error('No se ha podido preparar la imagen.'))),
+                    'image/jpeg', 0.85)
+    )
+  } finally {
+    URL.revokeObjectURL(url)
+  }
 }
 
 export async function borrarParticipante(id) {

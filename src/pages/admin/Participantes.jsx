@@ -5,12 +5,28 @@ import {
   getParticipantes, crearParticipante, actualizarParticipante,
   borrarParticipante, enviarEnlaceAcceso, getCuentasSinFicha, vincularCuenta,
 } from '../../lib/api.js'
-import { useAsync, Cargando, AvisoError, Portada, Seccion, Persona, Dinero } from '../../components/ui.jsx'
-import { fechaCorta } from '../../lib/formato.js'
+import {
+  useAsync, Cargando, AvisoError, Portada, Seccion, Dinero, Avatar, Destacado, Vacio,
+} from '../../components/ui.jsx'
+import CambiarFoto from '../../components/CambiarFoto.jsx'
+import { fechaCorta, fechaHora, haceCuanto, nombreVisible } from '../../lib/formato.js'
 import { useSesion } from '../../lib/sesion.js'
 import { MODO_DEMO } from '../../lib/supabase.js'
 
-const VACIO = { nombre: '', alias: '', email: '', alternativos: '' }
+const VACIO = { nombre: '', apodo: '', alias: '', email: '', alternativos: '' }
+
+/**
+ * Los filtros de la plantilla. Cada uno responde a una pregunta que el
+ * administrador se hace de verdad un viernes por la tarde.
+ */
+const FILTROS = [
+  { id: 'todos',     txt: 'Todos',                    pasa: () => true },
+  { id: 'sin-jugar', txt: 'Sin columna esta jornada', pasa: p => p.activo && p.juega_abierta === false },
+  { id: 'deben',     txt: 'Deben dinero',             pasa: p => p.saldo_cents < 0 },
+  { id: 'sin-cuenta',txt: 'Sin cuenta enlazada',      pasa: p => !p.user_id },
+  { id: 'sin-apodo', txt: 'Sin apodo ni foto',        pasa: p => !p.apodo || !p.avatar_url },
+  { id: 'inactivos', txt: 'Inactivos',                pasa: p => !p.activo },
+]
 
 export default function Participantes() {
   // En demo no hay sesión, así que se enseña como dueño para poder ver la
@@ -21,13 +37,16 @@ export default function Participantes() {
   const [nuevo, setNuevo] = useState(VACIO)
   const [editando, setEditando] = useState(null)
   const [aviso, setAviso] = useState(null)
+  const [filtro, setFiltro] = useState('todos')
 
   const { cargando, error, datos } = useAsync(getParticipantes, [recarga])
   // En su propia carga: que fallara al leer las cuentas sueltas no debe dejar
   // sin plantilla a quien solo venía a editar un alias.
   const cuentas = useAsync(getCuentasSinFicha, [recarga])
 
-  if (cargando) return <Cargando filas={5} />
+  // Solo la primera carga tapa la pantalla: al refrescar tras guardar, la
+  // tabla se queda donde estaba en vez de parpadear.
+  if (cargando && !datos) return <Cargando filas={5} />
   if (error) return <AvisoError error={error} />
 
   const refrescar = () => setRecarga(n => n + 1)
@@ -38,6 +57,7 @@ export default function Participantes() {
     try {
       await crearParticipante({
         nombre: nuevo.nombre.trim(),
+        apodo: nuevo.apodo.trim() || null,
         alias: nuevo.alias.trim() || nuevo.nombre.trim().toLowerCase().split(/\s+/)[0],
         email: nuevo.email.trim(),
         alias_alternativos: nuevo.alternativos.split(',').map(s => s.trim()).filter(Boolean),
@@ -52,6 +72,7 @@ export default function Participantes() {
     try {
       await actualizarParticipante(p.id, {
         nombre: editando.nombre.trim(),
+        apodo: editando.apodo.trim() || null,
         alias: editando.alias.trim(),
         email: editando.email.trim() || null,
         alias_alternativos: editando.alternativos.split(',').map(s => s.trim()).filter(Boolean),
@@ -109,6 +130,17 @@ export default function Participantes() {
   const sinVincular = datos.filter(p => !p.user_id).length
   const huerfanas = cuentas.datos ?? []
 
+  // El resumen de arriba: lo que hay que mirar sin tener que leer la tabla.
+  const activos = datos.filter(p => p.activo)
+  const hayAbierta = datos.some(p => p.juega_abierta !== null && p.juega_abierta !== undefined)
+  const hanJugado = activos.filter(p => p.juega_abierta).length
+  const deudores = datos.filter(p => p.saldo_cents < 0)
+  const deuda = deudores.reduce((a, p) => a + p.saldo_cents, 0)
+  const entraronSemana = datos.filter(p => p.ultima_entrada && Date.now() - new Date(p.ultima_entrada) < 7 * 864e5).length
+
+  const filtroActual = FILTROS.find(f => f.id === filtro) ?? FILTROS[0]
+  const visibles = datos.filter(filtroActual.pasa)
+
   return (
     <>
       <Portada
@@ -116,6 +148,22 @@ export default function Participantes() {
         titular="Quién juega la quiniela"
         entradilla="El alias es lo que el importador busca en la primera columna del Excel. Si alguien aparece escrito de varias formas, añádelas como alias alternativos y dejará de dar problemas."
       />
+
+      <div className="destacado cuatro">
+        <Destacado rotulo="En plantilla" valor={activos.length}
+                   nota={datos.length > activos.length ? `y ${datos.length - activos.length} inactivos` : 'Todos activos'} />
+        <Destacado rotulo="Jornada abierta"
+                   valor={hayAbierta ? `${hanJugado}/${activos.length}` : '—'}
+                   tono={hayAbierta && hanJugado < activos.length ? 'acento' : undefined}
+                   nota={hayAbierta
+                     ? (hanJugado < activos.length ? `Faltan ${activos.length - hanJugado} columnas` : 'Ya han jugado todos')
+                     : 'No hay ninguna abierta'} />
+        <Destacado rotulo="Deben" valor={deudores.length}
+                   tono={deudores.length ? 'acento' : undefined}
+                   nota={deudores.length ? <Dinero cents={deuda} /> : 'Nadie debe nada'} />
+        <Destacado rotulo="Han entrado" valor={entraronSemana}
+                   nota={`esta semana · ${sinVincular} sin cuenta`} />
+      </div>
 
       {aviso && (
         <div className="aviso" style={{ marginTop: 20 }}>{aviso.txt}</div>
@@ -128,6 +176,11 @@ export default function Participantes() {
             <span className="rotulo">Nombre</span>
             <input required value={nuevo.nombre} placeholder="Marta Ruiz"
                    onChange={e => setNuevo({ ...nuevo, nombre: e.target.value })} />
+          </label>
+          <label style={{ display: 'grid', gap: 4 }}>
+            <span className="rotulo">Apodo (lo que sale en la clasificación)</span>
+            <input value={nuevo.apodo} placeholder="La Jefa" maxLength={24}
+                   onChange={e => setNuevo({ ...nuevo, apodo: e.target.value })} />
           </label>
           <label style={{ display: 'grid', gap: 4 }}>
             <span className="rotulo">Alias (para el Excel)</span>
@@ -189,7 +242,25 @@ export default function Participantes() {
       )}
 
       <Seccion titulo="La plantilla"
-               nota={sinVincular ? `${sinVincular} sin cuenta enlazada` : 'Todos con cuenta'}>
+               nota={sinVincular ? `${sinVincular} sin cuenta enlazada` : 'Todos con cuenta'}
+               entradilla="El apodo y la foto son lo que ve el resto en la clasificación; si no hay apodo, sale el nombre. Cada uno puede cambiarse los suyos desde «Mi expediente»."
+      >
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '12px 0 4px' }}>
+          {FILTROS.map(f => {
+            const n = datos.filter(f.pasa).length
+            return (
+              <button key={f.id} onClick={() => setFiltro(f.id)}
+                      className={filtro === f.id ? 'principal' : undefined}
+                      style={{ padding: '4px 10px', fontSize: 12.5 }}>
+                {f.txt} <span style={{ opacity: .65 }}>{n}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {visibles.length === 0 ? (
+          <Vacio>Nadie en «{filtroActual.txt.toLowerCase()}».</Vacio>
+        ) : (
         <div className="tabla-scroll">
           <table>
             <thead>
@@ -197,22 +268,43 @@ export default function Participantes() {
                 <th>Participante</th>
                 <th>Alias en el Excel</th>
                 <th>Correo</th>
-                <th>Cuenta</th>
+                <th>Actividad</th>
                 <th className="num" style={{ paddingRight: 20 }}>Saldo</th>
                 <th style={{ paddingLeft: 4 }}>Permisos</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {datos.map(p => {
+              {visibles.map(p => {
                 const enEdicion = editando?.id === p.id
                 return (
                   <tr key={p.id} style={p.activo ? undefined : { opacity: .5 }}>
                     <td>
-                      {enEdicion
-                        ? <input value={editando.nombre} style={{ width: 140 }}
+                      {enEdicion ? (
+                        <div style={{ display: 'grid', gap: 4 }}>
+                          <input value={editando.apodo} placeholder="apodo (opcional)" maxLength={24}
+                                 style={{ width: 150 }}
+                                 onChange={e => setEditando({ ...editando, apodo: e.target.value })} />
+                          <input value={editando.nombre} placeholder="nombre real" style={{ width: 150 }}
                                  onChange={e => setEditando({ ...editando, nombre: e.target.value })} />
-                        : <Link to={`/perfil/${p.id}`}><Persona nombre={p.nombre} /></Link>}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Avatar nombre={nombreVisible(p)} foto={p.avatar_url} />
+                            <CambiarFoto compacto playerId={p.id} tieneFoto={!!p.avatar_url}
+                                         alCambiar={() => { setAviso({ tipo: 'ok', txt: `Foto de ${nombreVisible(p)} actualizada.` }); refrescar() }}
+                                         alFallar={fallo} />
+                          </div>
+                        </div>
+                      ) : (
+                        <Link to={`/perfil/${p.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <Avatar nombre={nombreVisible(p)} foto={p.avatar_url} tamano={34} />
+                          <span style={{ display: 'grid', minWidth: 0 }}>
+                            <span style={{ fontWeight: 500 }}>{nombreVisible(p)}</span>
+                            {p.apodo
+                              ? <span style={{ color: 'var(--tinta-3)', fontSize: 12 }}>{p.nombre}</span>
+                              : <span style={{ color: 'var(--tinta-3)', fontSize: 12, fontStyle: 'italic' }}>sin apodo</span>}
+                          </span>
+                        </Link>
+                      )}
                     </td>
                     <td>
                       {enEdicion ? (
@@ -239,10 +331,8 @@ export default function Participantes() {
                                  onChange={e => setEditando({ ...editando, email: e.target.value })} />
                         : (p.email || <span style={{ color: 'var(--tinta-3)' }}>sin correo</span>)}
                     </td>
-                    <td>
-                      <span className={`etiqueta ${p.user_id ? 'ok' : ''}`}>
-                        {p.user_id ? 'Enlazada' : 'Sin entrar'}
-                      </span>
+                    <td style={{ fontSize: 12.5 }}>
+                      <Actividad p={p} />
                     </td>
                     <td className="num" style={{ paddingRight: 20 }}><Dinero cents={p.saldo_cents} conSigno /></td>
                     <td style={{ fontSize: 12.5, paddingLeft: 4 }}>
@@ -285,7 +375,7 @@ export default function Participantes() {
                         <>
                           <button style={{ padding: '5px 9px' }}
                                   onClick={() => setEditando({
-                                    id: p.id, nombre: p.nombre, alias: p.alias,
+                                    id: p.id, nombre: p.nombre, apodo: p.apodo ?? '', alias: p.alias,
                                     email: p.email ?? '',
                                     alternativos: (p.alias_alternativos ?? []).join(', '),
                                   })}>
@@ -308,6 +398,7 @@ export default function Participantes() {
             </tbody>
           </table>
         </div>
+        )}
       </Seccion>
 
       <Seccion titulo="Sobre el acceso">
@@ -326,6 +417,30 @@ export default function Participantes() {
         </p>
       </Seccion>
     </>
+  )
+}
+
+/**
+ * De un vistazo: si sigue entrando, cuánto juega y si le falta la columna de
+ * la jornada abierta. `juega_abierta` es null cuando no hay ninguna abierta
+ * (0016), y entonces no se dice nada en vez de marcar a todos en rojo.
+ */
+function Actividad({ p }) {
+  const entrada = haceCuanto(p.ultima_entrada)
+  return (
+    <div style={{ display: 'grid', gap: 3, justifyItems: 'start' }}>
+      <span title={p.ultima_entrada ? `Última entrada: ${fechaHora(p.ultima_entrada)}` : undefined}>
+        {p.user_id
+          ? (entrada ? `Entró ${entrada}` : 'Enlazada, sin entrar')
+          : <span className="etiqueta">Sin cuenta</span>}
+      </span>
+      <span style={{ color: 'var(--tinta-3)' }}>
+        {p.columnas ?? 0} columna{p.columnas === 1 ? '' : 's'}
+        {p.ultima_columna && ` · la última el ${fechaCorta(p.ultima_columna)}`}
+      </span>
+      {p.activo && p.juega_abierta === true && <span className="etiqueta ok">Ya ha jugado</span>}
+      {p.activo && p.juega_abierta === false && <span className="etiqueta falta">Falta su columna</span>}
+    </div>
   )
 }
 

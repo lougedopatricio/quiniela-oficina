@@ -118,6 +118,13 @@ values ('Tu Nombre', 'tualias', 'tu@empresa.com', true);
    **Cuentas sin participante** para darle de alta o enlazarlo a una ficha que
    ya exista.
 
+   Esa misma pantalla sirve para vigilar la plantilla: quién ha entrado y
+   cuándo, quién no ha echado aún la columna de la jornada abierta, quién debe
+   dinero. Ahí también se pone a cada uno su **apodo** —lo que sale en la
+   clasificación en vez del nombre— y su **foto**. Cada jugador puede cambiar
+   los suyos desde *Mi expediente*. Las fotos van al bucket `avatares` de
+   Supabase Storage, que crea la migración `0016`.
+
 ### 2 · Variables
 
 En **Settings → Secrets and variables → Actions** del repo de GitHub:
@@ -165,6 +172,7 @@ workflow** sigue ahí, con el rango de fechas a recuperar.
 | Quien no entre en la web | Su boleto se carga a mano (*Boletos*) o por Excel (*Importar*) |
 | Domingo noche | Metes los signos en *Partidos*. Con todos puestos, la jornada se liquida sola |
 | Cuando alguien te paga | Apuntas el movimiento y su saldo se actualiza |
+| Antes del cierre | *Participantes → Sin columna esta jornada* te dice a quién avisar |
 
 Lo del domingo sería automático si la sincronización con LAE no estuviera
 bloqueada; mientras tanto, los signos se meten a mano igual que los partidos.

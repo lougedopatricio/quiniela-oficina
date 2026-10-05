@@ -47,7 +47,7 @@ export default function Saldos() {
             <tbody>
               {datos.map(s => (
                 <tr key={s.player_id}>
-                  <td><Link to={`/perfil/${s.player_id}`}><Persona nombre={s.nombre} /></Link></td>
+                  <td><Link to={`/perfil/${s.player_id}`}><Persona nombre={s.nombre} foto={s.avatar_url} /></Link></td>
                   <td className="num" style={{ color: 'var(--tinta-3)' }}>−{euros(s.cuotas_cents)}</td>
                   <td className="num" style={{ color: 'var(--tinta-3)' }}>+{euros(s.premios_cents)}</td>
                   <td className="num" style={{ color: 'var(--tinta-3)' }}>+{euros(s.pagado_cents)}</td>

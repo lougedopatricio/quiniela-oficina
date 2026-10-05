@@ -75,9 +75,26 @@ export const Seccion = ({ titulo, nota, entradilla, accion, children }) => (
   </section>
 )
 
-export const Persona = ({ nombre, mostrarInicial = true }) => (
+/**
+ * La foto de alguien, o sus iniciales si no tiene. Igual que `Escudo`: que la
+ * foto no cargue (borrada, sin red) no es un error, es volver a las iniciales.
+ */
+export const Avatar = ({ nombre, foto, tamano = 28, style }) => {
+  const [rota, setRota] = useState(false)
+  // Una foto nueva tiene que volver a intentarse aunque la anterior fallara.
+  useEffect(() => setRota(false), [foto])
+  const estilo = { width: tamano, height: tamano, fontSize: Math.max(10, Math.round(tamano * 0.38)), ...style }
+
+  if (!foto || rota) return <div className="inicial" style={estilo}>{iniciales(nombre)}</div>
+  return (
+    <img className="inicial foto" style={estilo} src={foto} alt="" title={nombre}
+         loading="lazy" onError={() => setRota(true)} />
+  )
+}
+
+export const Persona = ({ nombre, foto, mostrarInicial = true }) => (
   <div className="persona">
-    {mostrarInicial && <div className="inicial">{iniciales(nombre)}</div>}
+    {mostrarInicial && <Avatar nombre={nombre} foto={foto} />}
     <span className="nombre">{nombre}</span>
   </div>
 )

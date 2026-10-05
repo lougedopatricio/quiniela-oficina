@@ -136,7 +136,7 @@ export default function Jornada() {
                       <td><Posicion n={i + 1} /></td>
                       <td>
                         <Link to={`/perfil/${b.player_id}`}>
-                          <Persona nombre={b.nombre} />
+                          <Persona nombre={b.nombre} foto={b.avatar_url} />
                         </Link>
                       </td>
                       <td className="num destaca">

@@ -90,7 +90,7 @@ export default function Clasificacion() {
                   <tr key={f.player_id} className={i < 3 ? 'podio' : undefined}>
                     <td><Posicion n={i + 1} /></td>
                     <td>
-                      <Link to={`/perfil/${f.player_id}`}><Persona nombre={f.nombre} /></Link>
+                      <Link to={`/perfil/${f.player_id}`}><Persona nombre={f.nombre} foto={f.avatar_url} /></Link>
                     </td>
                     <td className="num destaca">{f.aciertos_total}</td>
                     <td className="num">{decimal(f.media_aciertos)}</td>

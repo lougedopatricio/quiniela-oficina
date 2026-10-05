@@ -19,8 +19,29 @@ export const fechaCorta = (iso) =>
 export const fechaHora = (iso) =>
   iso ? new Date(iso).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'
 
+/**
+ * Cómo sale alguien en las pantallas públicas: su apodo si se lo ha puesto
+ * (0016), su nombre si no. `nombre` puede venir sacado del correo al dar de
+ * alta una cuenta suelta, y no tiene por qué ser lo que uno quiere ver en la
+ * clasificación.
+ */
+export const nombreVisible = (p) => p?.apodo?.trim() || p?.nombre || '—'
+
 export const iniciales = (nombre = '') =>
   nombre.trim().split(/\s+/).slice(0, 2).map(p => p[0] ?? '').join('').toUpperCase()
+
+/** «hace 3 h», «hace 2 d»: para saber de un vistazo quién sigue entrando. */
+export function haceCuanto(iso) {
+  if (!iso) return null
+  const min = Math.max(0, Math.floor((Date.now() - new Date(iso)) / 60000))
+  if (min < 1) return 'ahora mismo'
+  if (min < 60) return `hace ${min} min`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `hace ${h} h`
+  const d = Math.floor(h / 24)
+  if (d < 60) return `hace ${d} d`
+  return `hace ${Math.floor(d / 30)} meses`
+}
 
 /** «faltan 2 d 4 h» para las cuentas atrás de los plazos. */
 export function cuentaAtras(iso) {
