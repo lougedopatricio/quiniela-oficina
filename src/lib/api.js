@@ -725,14 +725,25 @@ export async function getBoletosDeJornada(roundId) {
   }
   return lanzar(
     await supabase.from('bets')
-      .select('id, player_id, picks, estado, origen, players(nombre, alias)')
+      .select('id, player_id, picks, pleno_local, pleno_visitante, estado, origen, players(nombre, alias)')
       .eq('round_id', roundId)
   )
 }
 
-export async function guardarBoleto({ id, round_id, player_id, picks }) {
+/** Los partidos de una jornada, con cómo puntúa cada uno, para el editor de boletos. */
+export async function getPartidosDeJornada(roundId) {
+  if (MODO_DEMO) return ok(DEMO.rounds.find(x => x.id === roundId)?.partidos ?? [])
+  return lanzar(await supabase.from('matches').select('*').eq('round_id', roundId).order('orden'))
+}
+
+export async function guardarBoleto({ id, round_id, player_id, picks, pleno_local, pleno_visitante }) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
-  const fila = { round_id, player_id, picks, estado: 'confirmada', origen: 'admin' }
+  const fila = {
+    round_id, player_id, picks,
+    pleno_local: pleno_local || null,
+    pleno_visitante: pleno_visitante || null,
+    estado: 'confirmada', origen: 'admin',
+  }
   const { error } = id
     ? await supabase.from('bets').update(fila).eq('id', id)
     : await supabase.from('bets').upsert(fila, { onConflict: 'round_id,player_id' })
