@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Plus, Trash2, RefreshCw, Download } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Plus, Trash2, RefreshCw, Download, Printer } from 'lucide-react'
 import {
   getTemporada, getJornadas, getJornada, crearJornada, actualizarJornada,
   borrarJornada, guardarPartidos, recalcularJornada, sincronizarConLae, procesarDatosLae,
@@ -128,6 +129,11 @@ export default function JornadasAdmin() {
                               onClick={() => setAbierta(abierta === j.round_id ? null : j.round_id)}>
                         {abierta === j.round_id ? 'Cerrar' : 'Partidos'}
                       </button>
+                      <Link to={`/imprimir/${j.round_id}`} className="boton"
+                            style={{ padding: '5px 9px', marginLeft: 4 }}
+                            title="Boletos en papel con los partidos y los escudos, seis por folio, para imprimir o guardar en PDF">
+                        <Printer size={14} />
+                      </Link>
                       <button style={{ padding: '5px 9px', marginLeft: 4 }} onClick={() => recalcular(j)}
                               title="Volver a puntuar y repartir">
                         <RefreshCw size={14} />

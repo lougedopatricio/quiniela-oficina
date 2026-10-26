@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react'
-import { Routes, Route, NavLink, Navigate } from 'react-router-dom'
+import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
 import Clasificacion from './pages/Clasificacion.jsx'
 import Jornadas from './pages/Jornadas.jsx'
 import Jornada from './pages/Jornada.jsx'
@@ -22,6 +22,7 @@ const JornadasAdmin = lazy(() => import('./pages/admin/JornadasAdmin.jsx'))
 const BoletosAdmin  = lazy(() => import('./pages/admin/Boletos.jsx'))
 const Caja          = lazy(() => import('./pages/admin/Caja.jsx'))
 const Importar      = lazy(() => import('./pages/admin/Importar.jsx'))
+const ImprimirBoletos = lazy(() => import('./pages/admin/ImprimirBoletos.jsx'))
 
 const SECCIONES = [
   { a: '/',         txt: 'Portada' },
@@ -49,7 +50,21 @@ export default function App() {
   // enlace de recuperación usa el fragmento de la URL para sus propios
   // tokens, el mismo sitio que HashRouter usa para las rutas, y forzar una
   // convivencia entre los dos es más frágil que evitarla del todo.
+  const { pathname } = useLocation()
+
   if (sesion.recuperando) return <PantallaRecuperacion />
+
+  // La hoja de boletos para imprimir va sin cabecera ni menú: lo que se ve es
+  // lo que sale por la impresora.
+  if (pathname.startsWith('/imprimir/')) {
+    if (sesion.cargando) return <Cargando filas={4} />
+    if (!verAdmin) return <Navigate to="/entrar" replace />
+    return (
+      <Suspense fallback={<Cargando filas={4} />}>
+        <Routes><Route path="/imprimir/:id" element={<ImprimirBoletos />} /></Routes>
+      </Suspense>
+    )
+  }
 
   return (
     <div className="app">

@@ -864,8 +864,76 @@ export async function getMovimientosManuales() {
  * sustituye las columnas en vez de duplicarlas, que es exactamente lo que pasa
  * cuando se detecta una errata después de haber subido el archivo.
  */
-export async function importarBoletos(roundId, filas, { marcarPagado = false } = {}) {
+/**
+ * Mete en la jornada los partidos y los resultados que trae el Excel de la
+ * oficina.
+ *
+ * Nunca pisa nada: crea solo los partidos que la jornada todavía no tenga, y
+ * pone el resultado solo donde aún no lo hay. Con la sincronización de LAE
+ * bloqueada (ver docs/lae.md), el Excel es en la práctica de donde salen los
+ * resultados, pero si ya se metieron a mano o llegaron de LAE, mandan esos.
+ */
+export async function volcarPartidosDelExcel(roundId, partidos) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const existentes = lanzar(
+    await supabase.from('matches').select('id, orden, signo').eq('round_id', roundId)
+  )
+  const porOrden = new Map(existentes.map(m => [m.orden, m]))
+
+  const nuevos = partidos
+    .filter(p => !porOrden.has(p.orden) && p.local && p.visitante)
+    .map(p => ({
+      round_id: roundId, orden: p.orden, local: p.local, visitante: p.visitante,
+      modo_puntuacion: p.orden === 15 ? 'pleno' : 'normal',
+      exige_resultado: false,
+      signo: p.resultado,
+      estado: p.resultado ? 'finalizado' : 'pendiente',
+    }))
+  if (nuevos.length) {
+    const { error } = await supabase.from('matches').insert(nuevos)
+    if (error) throw new Error(error.message)
+  }
+
+  let conResultado = 0
+  for (const p of partidos) {
+    const m = porOrden.get(p.orden)
+    if (!m || m.signo || !p.resultado) continue
+    const { error } = await supabase.from('matches')
+      .update({ signo: p.resultado, estado: 'finalizado' }).eq('id', m.id)
+    if (error) throw new Error(error.message)
+    conResultado++
+  }
+  return { creados: nuevos.length, conResultado: conResultado + nuevos.filter(n => n.signo).length }
+}
+
+/**
+ * Da de alta a quien aparece en el Excel y no existe todavía.
+ *
+ * El Excel identifica a cada uno por el usuario de su correo, así que con el
+ * dominio se reconstruye el correo entero: su cuenta se enlaza sola el día
+ * que entre (0012). El nombre provisional es ese mismo usuario; para que no
+ * salga así en la clasificación, se le pone un apodo después.
+ */
+export async function altaDesdeExcel(usuarios, dominio) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const dom = String(dominio ?? '').trim().replace(/^@/, '')
+  if (!/^[^\s@]+\.[^\s@]+$/.test(dom)) throw new Error('Escribe el dominio del correo, por ejemplo empresa.com')
+  const { error } = await supabase.from('players').insert(
+    usuarios.map(u => ({ nombre: u, alias: u, email: `${u}@${dom}` }))
+  )
+  if (error) {
+    throw new Error(error.code === '23505'
+      ? 'Alguno de ellos ya existe con ese alias o ese correo. Revisa Participantes.'
+      : error.message)
+  }
+}
+
+export async function importarBoletos(roundId, filas, { marcarPagado = false, partidos = null } = {}) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+
+  // Primero los partidos: el trigger de 0017 comprueba la columna contra
+  // ellos, y una jornada sin partidos todavía no sabe que el 15 es el pleno.
+  const volcado = partidos ? await volcarPartidosDelExcel(roundId, partidos) : null
 
   const { error } = await supabase.from('bets').upsert(
     filas.map(f => ({
@@ -914,7 +982,7 @@ export async function importarBoletos(roundId, filas, { marcarPagado = false } =
   // Si aún faltan signos oficiales, no repartirá nada y no pasa nada.
   const { data, error: eRpc } = await supabase.rpc('recalcular_jornada', { p_round_id: roundId })
   if (eRpc) throw new Error(eRpc.message)
-  return data
+  return { ...data, volcado }
 }
 
 // ---------------------------------------------------------------------------

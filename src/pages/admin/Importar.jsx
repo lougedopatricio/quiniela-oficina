@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Upload, Download, Check, AlertTriangle } from 'lucide-react'
-import { getTemporada, getJornadas, getJugadores, importarBoletos } from '../../lib/api.js'
+import { Upload, Download, Check, AlertTriangle, UserPlus } from 'lucide-react'
+import { getTemporada, getJornadas, getParticipantes, importarBoletos, altaDesdeExcel } from '../../lib/api.js'
 import { leerBoletos, plantillaBoletos } from '../../lib/excel.js'
-import { liquidar } from '../../lib/reglas.js'
+import { liquidar, puntuar } from '../../lib/reglas.js'
 import { MODO_DEMO } from '../../lib/supabase.js'
 import { useAsync, Cargando, AvisoError, Portada, CifraMenor, Seccion, Vacio } from '../../components/ui.jsx'
 import { euros } from '../../lib/formato.js'
@@ -14,15 +14,22 @@ export default function Importar() {
   // Activado por defecto: lo normal es que quien entrega el boleto ya haya
   // pagado en mano en el momento de recogerlo.
   const [marcarPagado, setMarcarPagado] = useState(true)
+  // El Excel de la oficina trae también los partidos y los resultados.
+  const [conPartidos, setConPartidos] = useState(true)
+  const [archivo, setArchivo] = useState(null)
+  const [dominio, setDominio] = useState('')
+  const [recarga, setRecarga] = useState(0)
 
+  // Participantes y no jugadores a secas: hace falta el correo, porque el
+  // Excel de la oficina identifica a cada uno por su usuario de correo.
   const { cargando, error, datos } = useAsync(async () => {
     const season = await getTemporada()
     if (!season) return null
-    const [jornadas, jugadores] = await Promise.all([getJornadas(season.id), getJugadores()])
+    const [jornadas, jugadores] = await Promise.all([getJornadas(season.id), getParticipantes()])
     return { season, jornadas, jugadores }
-  }, [])
+  }, [recarga])
 
-  if (cargando) return <Cargando filas={4} />
+  if (cargando && !datos) return <Cargando filas={4} />
   if (error) return <AvisoError error={error} />
   if (!datos) return <Vacio>No hay temporada abierta.</Vacio>
 
@@ -34,7 +41,9 @@ export default function Importar() {
     if (!f) return
     setEstado(null)
     try {
-      setAnalisis(leerBoletos(await f.arrayBuffer(), jugadores))
+      const buffer = await f.arrayBuffer()
+      setArchivo(buffer)
+      setAnalisis(leerBoletos(buffer, jugadores))
     } catch (err) {
       setEstado({ tipo: 'error', txt: `No se ha podido leer el archivo: ${err.message}` })
     }
@@ -42,6 +51,24 @@ export default function Importar() {
 
   const validas = analisis?.filas.filter(f => f.valida) ?? []
   const rotas = analisis?.filas.filter(f => !f.valida) ?? []
+  const oficina = analisis?.formato === 'oficina'
+  // Quien solo falla por no estar dado de alta: se puede arreglar desde aquí.
+  const sinAlta = (analisis?.filas ?? []).filter(f => !f.jugador)
+  const resultados = oficina ? analisis.partidos.map(p => p.resultado) : null
+  const conResultados = resultados?.some(Boolean)
+
+  async function darDeAlta() {
+    setEstado({ tipo: 'trabajando', txt: 'Dando de alta…' })
+    try {
+      await altaDesdeExcel(sinAlta.map(f => f.nombre), dominio)
+      const lista = await getParticipantes()
+      setAnalisis(leerBoletos(archivo, lista))
+      setRecarga(n => n + 1)
+      setEstado({ tipo: 'ok', txt: `${sinAlta.length} participante${sinAlta.length === 1 ? '' : 's'} dado${sinAlta.length === 1 ? '' : 's'} de alta. Ponles un apodo en Participantes para que no salgan con el usuario del correo.` })
+    } catch (err) {
+      setEstado({ tipo: 'error', txt: err.message })
+    }
+  }
 
   // Previsualización del dinero con las mismas reglas que aplicará la base.
   // Los aciertos aún no se conocen, pero el reparto solo depende del número
@@ -52,13 +79,21 @@ export default function Importar() {
   async function importar() {
     setEstado({ tipo: 'trabajando', txt: 'Importando…' })
     try {
-      const res = await importarBoletos(roundId, validas, { marcarPagado })
+      const res = await importarBoletos(roundId, validas, {
+        marcarPagado,
+        partidos: oficina && conPartidos ? analisis.partidos : null,
+      })
       const conPago = marcarPagado ? ` y ${validas.length} pago${validas.length === 1 ? '' : 's'} anotado${validas.length === 1 ? '' : 's'}` : ''
+      const v = res?.volcado
+      const conPartidosTxt = v && (v.creados || v.conResultado)
+        ? ` Del Excel: ${v.creados} partido${v.creados === 1 ? '' : 's'} nuevo${v.creados === 1 ? '' : 's'} y ${v.conResultado} resultado${v.conResultado === 1 ? '' : 's'}.`
+        : ''
       setEstado({
         tipo: 'ok',
-        txt: res?.liquidada
+        txt: (res?.liquidada
           ? `${validas.length} boletos importados${conPago}. Jornada liquidada: ${res.ganadores} ganador(es) con ${res.max_aciertos} aciertos.`
-          : `${validas.length} boletos importados${conPago}. La jornada se liquidará sola cuando Loterías publique los catorce signos.`,
+          : `${validas.length} boletos importados${conPago}. La jornada se liquidará sola cuando estén todos los resultados.`)
+          + conPartidosTxt,
       })
       setAnalisis(null)
     } catch (err) {
@@ -71,7 +106,7 @@ export default function Importar() {
       <Portada
         antetitulo="Redacción"
         titular="Subir los boletos de la jornada"
-        entradilla="Primera columna el nombre y a continuación los catorce signos. No se guarda nada hasta que revises la previsualización: las filas con problemas se quedan fuera."
+        entradilla="Sube el Excel de la quiniela tal cual (hoja «Pronosticos»: una columna por persona, con su usuario de correo arriba). También vale la plantilla sencilla, con una fila por persona. No se guarda nada hasta que revises la previsualización."
       />
 
       {MODO_DEMO && (
@@ -121,6 +156,14 @@ export default function Importar() {
           Marcar a todos como pagados en mano al importar
         </label>
 
+        {oficina && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, paddingBottom: 4 }}>
+            <input type="checkbox" checked={conPartidos} onChange={e => setConPartidos(e.target.checked)}
+                   style={{ width: 16, height: 16 }} />
+            Meter también los partidos y los resultados del Excel (no pisa los que ya haya)
+          </label>
+        )}
+
         {estado && (
           <div className="aviso">
             {estado.tipo === 'ok'
@@ -133,6 +176,50 @@ export default function Importar() {
 
       {analisis && (
         <>
+          {analisis.errores?.length > 0 && (
+            <div className="aviso" style={{ marginTop: 20 }}>{analisis.errores.join(' ')}</div>
+          )}
+
+          {sinAlta.length > 0 && (
+            <Seccion titulo="Gente del Excel que no está dada de alta"
+                     nota={`${sinAlta.length} sin ficha`}
+                     entradilla="El Excel los nombra por el usuario de su correo. Con el dominio se les crea la ficha con su correo completo, y su cuenta se enlazará sola cuando entren. Luego ponles un apodo en Participantes.">
+              <div style={{ color: 'var(--tinta-2)', fontSize: 13, padding: '10px 0', fontFamily: 'var(--mono)' }}>
+                {sinAlta.map(f => f.nombre).join(', ')}
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', paddingBottom: 12 }}>
+                <span className="rotulo">Dominio del correo</span>
+                <input value={dominio} placeholder="empresa.com" onChange={e => setDominio(e.target.value)}
+                       style={{ width: 200 }} />
+                <button className="principal" disabled={MODO_DEMO || !dominio.trim() || estado?.tipo === 'trabajando'}
+                        onClick={darDeAlta}>
+                  <UserPlus size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+                  Dar de alta a los {sinAlta.length}
+                </button>
+              </div>
+            </Seccion>
+          )}
+
+          {oficina && analisis.partidos.length > 0 && (
+            <Seccion titulo="Partidos del Excel"
+                     nota={conResultados ? `${resultados.filter(Boolean).length} con resultado` : 'Sin resultados todavía'}>
+              <div className="tabla-scroll">
+                <table>
+                  <thead><tr><th style={{ width: 40 }}>Nº</th><th>Partido</th><th className="num">Resultado</th></tr></thead>
+                  <tbody>
+                    {analisis.partidos.map(p => (
+                      <tr key={p.orden}>
+                        <td className="posicion">{p.orden === 15 ? 'P15' : String(p.orden).padStart(2, '0')}</td>
+                        <td>{p.local} – {p.visitante}</td>
+                        <td className="num destaca">{p.resultado ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Seccion>
+          )}
+
           {previo && (
             <Seccion titulo="Lo que va a pasar con el dinero">
               <div className="cifras-menores">
@@ -159,24 +246,35 @@ export default function Importar() {
               <table>
                 <thead>
                   <tr>
-                    <th style={{ width: 40 }}>Fila</th>
+                    <th style={{ width: 40 }}>{oficina ? 'Col.' : 'Fila'}</th>
                     <th>Nombre</th>
                     <th>Columna</th>
+                    {conResultados && <th className="num">Aciertos</th>}
                     <th>Estado</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {analisis.filas.map(f => (
+                  {[...analisis.filas]
+                .sort((a, b) => (conResultados ? puntuar(b.picks, resultados) - puntuar(a.picks, resultados) : 0))
+                .map(f => (
                     <tr key={f.linea}>
                       <td className="posicion">{String(f.linea).padStart(2, '0')}</td>
-                      <td style={{ fontWeight: 500 }}>{f.nombre}</td>
+                      <td style={{ fontWeight: 500 }}>
+                        {f.nombre}
+                        {f.jugador && f.jugador.nombre !== f.nombre && (
+                          <div style={{ color: 'var(--tinta-3)', fontSize: 12, fontWeight: 400 }}>{f.jugador.apodo || f.jugador.nombre}</div>
+                        )}
+                      </td>
                       <td>
                         <div className="tira-signos">
-                          {f.picks.map((p, i) => (
-                            <span key={i} className={`signo ${p === '-' ? 'fallo' : ''}`}>{p}</span>
-                          ))}
+                          {f.picks.map((p, i) => {
+                            const r = resultados?.[i]
+                            const clase = p === '-' ? 'fallo' : r ? (p === r ? 'acierto' : '') : ''
+                            return <span key={i} className={`signo ${clase}`}>{p}</span>
+                          })}
                         </div>
                       </td>
+                      {conResultados && <td className="num destaca">{puntuar(f.picks, resultados)}</td>}
                       <td style={{ color: f.valida ? 'var(--verde)' : 'var(--rojo)', fontSize: 13 }}>
                         {f.valida ? 'Correcta' : f.problemas.join(' · ')}
                       </td>

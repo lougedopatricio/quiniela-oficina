@@ -87,3 +87,73 @@ test('funciona también sin fila de cabecera', () => {
   assert.equal(filas.length, 2)
   assert.ok(filas.every(f => f.valida))
 })
+
+// ---------------------------------------------------------------------------
+// El Excel de la oficina: una columna por persona, identificada por el
+// usuario de su correo, y el Pleno al 15 jugado con 1/X/2.
+// ---------------------------------------------------------------------------
+
+const PARTIDOS = Array.from({ length: 14 }, (_, i) => `Local ${i + 1} - Visitante ${i + 1}`)
+const RESULTADOS = ['1', 'X', '2', '1', 'x', '2', '1', 'X', '2', '1', 'X', '2', '1', 'X']
+
+function hojaOficina(columnas, { resultados = RESULTADOS, pleno = '1' } = {}) {
+  const nombres = Object.keys(columnas)
+  const filas = [['', '', 'Resultados', ...nombres]]
+  for (let i = 0; i < 14; i++) {
+    filas.push([i + 1, PARTIDOS[i], resultados[i] ?? '', ...nombres.map(n => columnas[n][i] ?? '')])
+  }
+  filas.push(['PLENO AL 15', 'Betis - Sevilla', pleno, ...nombres.map(n => columnas[n][14] ?? '')])
+  const libro = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(libro, XLSX.utils.aoa_to_sheet([['#', 'Participante']]), 'Resultados')
+  XLSX.utils.book_append_sheet(libro, XLSX.utils.aoa_to_sheet(filas), 'Pronosticos')
+  return XLSX.write(libro, { type: 'array', bookType: 'xlsx' })
+}
+
+const CON_CORREO = [
+  { id: 'p1', nombre: 'Alejandro', alias: 'alejandro', email: 'a.lougedo.patricio@empresa.com' },
+  { id: 'p2', nombre: 'Lucía', alias: 'lucia', email: 'lucia.a.gomez@empresa.com' },
+]
+
+test('formato oficina: lee columnas, casa por el usuario del correo y trae el pleno', () => {
+  const col = [...COLUMNA, 'X']
+  const { formato, filas, partidos } = leerBoletos(hojaOficina({ 'a.lougedo.patricio': col }), CON_CORREO)
+  assert.equal(formato, 'oficina')
+  assert.equal(filas.length, 1)
+  assert.equal(filas[0].jugador.id, 'p1')
+  assert.equal(filas[0].linea, 'D')
+  assert.deepEqual(filas[0].picks, col)
+  assert.ok(filas[0].valida)
+  assert.equal(partidos.length, 15)
+  assert.deepEqual(partidos[0], { orden: 1, local: 'Local 1', visitante: 'Visitante 1', resultado: '1' })
+  assert.equal(partidos[4].resultado, 'X', 'la x minúscula del Excel también vale')
+  assert.deepEqual(partidos[14], { orden: 15, local: 'Betis', visitante: 'Sevilla', resultado: '1' })
+})
+
+test('formato oficina: las columnas vacías no son boletos', () => {
+  const { filas } = leerBoletos(hojaOficina({
+    'a.lougedo.patricio': [...COLUMNA, '1'],
+    'lucia.a.gomez': [],
+  }), CON_CORREO)
+  assert.equal(filas.length, 1)
+})
+
+test('formato oficina: sin pleno la columna no está completa', () => {
+  const { filas } = leerBoletos(hojaOficina({ 'a.lougedo.patricio': COLUMNA }), CON_CORREO)
+  assert.equal(filas[0].valida, false)
+  assert.match(filas[0].problemas.join(' '), /falta el signo de el pleno/)
+})
+
+test('formato oficina: señala a quien no está dado de alta', () => {
+  const { filas } = leerBoletos(hojaOficina({ 'nuevo.compi': [...COLUMNA, '2'] }), CON_CORREO)
+  assert.equal(filas[0].jugador, null)
+  assert.match(filas[0].problemas[0], /no hay ningún participante «nuevo.compi»/)
+})
+
+test('formato oficina: la misma persona en dos columnas', () => {
+  const { filas } = leerBoletos(hojaOficina({
+    'a.lougedo.patricio': [...COLUMNA, '1'],
+    'alejandro': [...COLUMNA, '1'],
+  }), CON_CORREO)
+  assert.equal(filas[1].valida, false)
+  assert.match(filas[1].problemas.join(' '), /repetido: ya aparece en la columna D/)
+})

@@ -14,16 +14,19 @@
 /**
  * Aciertos de una columna, sobre los signos que se le pasen.
  *
- * Cuántos partidos puntúan lo decide quien llama, no esta función: desde 0013
- * el Pleno al 15 puede contar o no según cómo esté configurada la jornada. Se
- * mira hasta donde llegue `signos`, así que pasar 14 da el comportamiento de
- * siempre y pasar 15 incluye el pleno.
+ * Cuántos partidos puntúan lo decide quien llama: pasar 14 signos da la
+ * jornada sin pleno, y pasar 15 incluye el Pleno al 15.
+ *
+ * El pleno cuenta como lo cuenta el Excel de la oficina (y la base desde
+ * 0018): solo suma si se han acertado los 14. Quien hace 13 y acierta el
+ * pleno se queda en 13.
  */
 export function puntuar(picks, signos) {
   let n = 0
-  for (let i = 0; i < signos.length; i++) {
+  for (let i = 0; i < Math.min(14, signos.length); i++) {
     if (signos[i] && picks[i] === signos[i]) n++
   }
+  if (signos.length > 14 && n === 14 && signos[14] && picks[14] === signos[14]) n++
   return n
 }
 

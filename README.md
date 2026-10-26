@@ -19,7 +19,9 @@ npm run dev
 
 - Cada persona juega **una columna** por jornada, a un precio fijo. La cuota se
   apunta a su cuenta en cuanto la echa.
-- Puntúan **los 14 partidos y el Pleno al 15**, que suma como uno más.
+- Puntúan **los 14 partidos**. El **Pleno al 15** se juega con 1/X/2 y solo
+  suma si se han acertado los 14, igual que en el Excel de la oficina: 13 y el
+  pleno siguen siendo 13.
 - **50 %** de lo recaudado va a quien más acierte, **a partes iguales** si hay empate.
 - **50 %** va al bote. El céntimo impar de una recaudación impar va al bote.
 - **Acertarlo todo** —pleno incluido— se lleva además el bote entero y lo deja a cero.
@@ -31,16 +33,17 @@ Jornadas → Partidos*:
 | Cómo puntúa | Qué hace |
 |---|---|
 | `normal` | Un 1/X/2 como cualquier otro |
-| `pleno` | Cuenta igual **y** es el que abre el bote |
+| `pleno` | Solo suma con los 14 acertados, **y** es el que abre el bote |
 | `no puntúa` | Ni cuenta ni abre nada |
 
-Y el pleno admite dos formas de acertarse: **el resultado exacto** (0, 1, 2 o M
-para cada equipo, como el boleto oficial) o **solo quién gana**. Por defecto va
-como la quiniela oficial; lo demás está para la jornada rara.
+Y el pleno admite dos formas de acertarse: **solo quién gana** (1/X/2, como en
+el Excel y en el boleto de papel, que es lo que se usa por defecto) o **el
+resultado exacto** (0, 1, 2 o M para cada equipo, como el boleto oficial), para
+la jornada rara.
 
 Todo esto vive en un único sitio:
-[`supabase/migrations/0013_pleno_al_15.sql`](supabase/migrations/0013_pleno_al_15.sql),
-que reemplaza la función de reparto original de
+[`supabase/migrations/0018_pleno_como_el_excel.sql`](supabase/migrations/0018_pleno_como_el_excel.sql),
+que reemplaza a la de [`0013`](supabase/migrations/0013_pleno_al_15.sql) y esta a la función de reparto original de
 [`0004`](supabase/migrations/0004_puntuacion.sql). Si algún día cambiáis las
 reglas, se cambian ahí y en ningún otro lado.
 
