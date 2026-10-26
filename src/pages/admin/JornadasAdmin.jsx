@@ -7,7 +7,8 @@ import {
 } from '../../lib/api.js'
 import { useAsync, Cargando, AvisoError, Portada, Seccion, Vacio, Escudo } from '../../components/ui.jsx'
 import { euros, fechaCorta } from '../../lib/formato.js'
-import { signoDeMarcador, PAGINAS, partidosDeJornadaAbierta } from '../../../scripts/lae.mjs'
+import { signoDeMarcador, PAGINAS } from '../../../scripts/lae.mjs'
+import { leerPartidosPegados, COMANDO_COPIAR_PAGINA } from '../../lib/pegado.js'
 
 const ESTADOS = ['borrador', 'abierta', 'cerrada', 'en_juego', 'finalizada']
 
@@ -272,22 +273,13 @@ function PegarDatosLae({ alGuardar }) {
   )
 }
 
-// Se pega y se ejecuta ESTANDO en la página donde se juega la Quiniela. No
-// puede lanzarse desde aquí ni con fetch: los partidos de la jornada abierta
-// solo están en el DOM de esa página, que además vive en otro subdominio
-// (juegos.), así que ni siquiera comparte origen con /servicios.
-//
-// Imprime una línea por partido, en el orden en que están, que es el orden de
-// la quiniela. Comprobado el 2026-08-27 contra la jornada 3.
-const COMANDO_ABIERTA = `copy([...document.querySelectorAll('.nombre-partido-completo')].map(e=>e.textContent.replace(/\\s+/g,' ').trim()).join('\\n'))`
-
 /** Edición de los 15 partidos: equipos, marcador y signo oficial. */
 function EditorPartidos({ roundId, alGuardar, alFallar }) {
   const [borrador, setBorrador] = useState(null)
   const [guardando, setGuardando] = useState(false)
   const [pegado, setPegado] = useState('')
   const [abiertaOpen, setAbiertaOpen] = useState(false)
-  const [fuente, setFuente] = useState('lae')
+  const [copiado, setCopiado] = useState(false)
 
   const { cargando, error, datos } = useAsync(() => getJornada(roundId), [roundId])
 
@@ -325,21 +317,40 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
   // importador de Excel. Un partido sustituido a mano no se toca.
   // Se recalcula al teclear para poder decir cuántos partidos se han entendido
   // ANTES de tocar la tabla.
-  const vistaPrevia = pegado.trim()
-    ? partidosDeJornadaAbierta(pegado.split('\n'))
-    : []
+  const vistaPrevia = pegado.trim() ? leerPartidosPegados(pegado).partidos : []
 
+  async function copiarComando() {
+    try {
+      await navigator.clipboard.writeText(COMANDO_COPIAR_PAGINA)
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2500)
+    } catch {
+      alFallar(new Error('El navegador no ha dejado copiar: selecciona el comando del cuadro y cópialo a mano.'))
+    }
+  }
+
+  // Si la página enseñaba marcadores (jornada ya jugada), entran también, pero
+  // solo donde todavía no hay signo: lo que ya esté metido o haya llegado de
+  // LAE manda.
   function volcarPegado() {
     const buenos = vistaPrevia.filter(p => p.completo)
 
     if (buenos.length === 0) {
-      return alFallar(new Error('No se ha reconocido ningún partido. Cada línea tiene que ser "Local - Visitante".'))
+      return alFallar(new Error('No se ha reconocido ningún partido en lo pegado. Comprueba que en la página se veían los partidos de la jornada.'))
     }
 
     setBorrador(partidos.map(m => {
       const nuevo = buenos.find(p => p.orden === m.orden)
       if (!nuevo || m.sustituido_de) return m
-      return { ...m, local: nuevo.local, visitante: nuevo.visitante }
+      const conGoles = nuevo.goles_local != null && nuevo.goles_visitante != null && !m.signo
+      return {
+        ...m, local: nuevo.local, visitante: nuevo.visitante,
+        ...(conGoles ? {
+          goles_local: nuevo.goles_local, goles_visitante: nuevo.goles_visitante,
+          signo: signoDeMarcador(nuevo.goles_local, nuevo.goles_visitante),
+          estado: 'finalizado',
+        } : {}),
+      }
     }))
     setPegado('')
     setAbiertaOpen(false)
@@ -382,70 +393,69 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
           repasa y se confirma, como en el importador de Excel. */}
       <div style={{ padding: '12px 0', borderBottom: '1px solid var(--regla)', marginBottom: 4 }}>
         <button onClick={() => setAbiertaOpen(o => !o)} style={{ fontSize: 12.5 }}>
-          {abiertaOpen ? 'Ocultar' : 'Traer los equipos de LAE de una vez'}
+          {abiertaOpen ? 'Ocultar' : 'Copiar los partidos de TuLotero (o de LAE)'}
         </button>
 
         {abiertaOpen && (
-          <div style={{ display: 'grid', gap: 12, marginTop: 14, maxWidth: 620 }}>
+          <div style={{ display: 'grid', gap: 12, marginTop: 14, maxWidth: 680 }}>
             <p className="entradilla" style={{ margin: 0 }}>
-              Una línea por partido, en el orden de la quiniela. Da igual de dónde se copie
-              y da igual si vienen numerados: lo que importa es que cada línea sea
-              "Local - Visitante".
+              Sirve para cualquier jornada, pasada o futura: lo que se vea en la página es lo
+              que llega. Si la jornada ya se jugó y la página enseña los marcadores, entran
+              también los resultados.
+            </p>
+            <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, color: 'var(--tinta-2)', display: 'grid', gap: 6 }}>
+              <li>
+                Abre{' '}
+                <a href={PAGINAS.tulotero} target="_blank" rel="noreferrer"
+                   style={{ color: 'var(--rojo)', textDecoration: 'underline' }}>TuLotero</a>{' '}
+                con tu cuenta y entra en la jornada {datos.round.numero}, hasta que se vean los 15 partidos.
+                También vale{' '}
+                <a href={PAGINAS.apuesta} target="_blank" rel="noreferrer"
+                   style={{ color: 'var(--rojo)', textDecoration: 'underline' }}>la página de LAE</a>{' '}
+                para la jornada abierta.
+              </li>
+              <li>
+                Pulsa <b>F12</b> y ve a la pestaña <b>Consola</b>. La primera vez Chrome pide
+                escribir <code>allow pasting</code> (o <code>permitir pegar</code>) antes de dejarte pegar.
+              </li>
+              <li>
+                <button onClick={copiarComando} style={{ fontSize: 12.5, padding: '4px 10px' }}>
+                  {copiado ? 'Comando copiado ✓' : 'Copiar el comando'}
+                </button>{' '}
+                , pégalo en esa consola y pulsa Intro. Copia el texto de la página.
+              </li>
+              <li>Vuelve aquí y pégalo en el cuadro de abajo (Ctrl+V). Repasa los partidos antes de guardar.</li>
+            </ol>
+            <details style={{ fontSize: 12.5, color: 'var(--tinta-3)' }}>
+              <summary>Ver el comando</summary>
+              <textarea readOnly value={COMANDO_COPIAR_PAGINA} rows={3}
+                        onFocus={e => e.target.select()}
+                        style={{ fontFamily: 'var(--mono)', fontSize: 11, padding: 8, width: '100%', marginTop: 6 }} />
+            </details>
+            <p style={{ margin: 0, fontSize: 12.5, color: 'var(--tinta-3)' }}>
+              ¿Sin consola, desde el móvil? Selecciona los partidos en la página, cópialos y pégalos igual.
             </p>
 
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              <button onClick={() => setFuente('lae')} className={fuente === 'lae' ? 'principal' : undefined}
-                      style={{ fontSize: 12.5 }}>Desde LAE</button>
-              <button onClick={() => setFuente('tulotero')} className={fuente === 'tulotero' ? 'principal' : undefined}
-                      style={{ fontSize: 12.5 }}>Desde TuLotero</button>
-            </div>
-
-            {fuente === 'lae' ? (
-              <>
-                <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, color: 'var(--tinta-2)', display: 'grid', gap: 6 }}>
-                  <li>
-                    Abre{' '}
-                    <a href={PAGINAS.apuesta} target="_blank" rel="noreferrer"
-                       style={{ color: 'var(--rojo)', textDecoration: 'underline' }}>
-                      la página donde se juega la Quiniela
-                    </a>{' '}
-                    y espera a que carguen los 15 partidos.
-                  </li>
-                  <li>Pulsa F12 y abre la pestaña "Consola".</li>
-                  <li>Pega ahí el comando de abajo y pulsa Intro. Copia los partidos al portapapeles.</li>
-                  <li>Vuelve aquí y pégalos en el cuadro. Repásalos antes de guardar.</li>
-                </ol>
-                <textarea readOnly value={COMANDO_ABIERTA} rows={2}
-                          onFocus={e => e.target.select()}
-                          style={{ fontFamily: 'var(--mono)', fontSize: 11, padding: 8, color: 'var(--tinta-2)' }} />
-              </>
-            ) : (
-              <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, color: 'var(--tinta-2)', display: 'grid', gap: 6 }}>
-                <li>
-                  Entra en{' '}
-                  <a href={PAGINAS.tulotero} target="_blank" rel="noreferrer"
-                     style={{ color: 'var(--rojo)', textDecoration: 'underline' }}>
-                    TuLotero
-                  </a>{' '}
-                  con tu cuenta y abre la jornada que quieras. Aquí sí puedes elegir cuál:
-                  es lo que LAE no deja cuando hay una entre semana por delante.
-                </li>
-                <li>
-                  Selecciona los 15 partidos con el ratón y cópialos (Ctrl+C). No hace falta
-                  ningún comando.
-                </li>
-                <li>Pégalos abajo. Si arrastran números o texto de más, se ignoran.</li>
-              </ol>
-            )}
-
             <textarea value={pegado} onChange={e => setPegado(e.target.value)} rows={6}
-                      placeholder={'Levante - Betis\nReal Sociedad - Espanyol\n…'}
+                      placeholder={'Pega aquí el texto de la página'}
                       style={{ fontFamily: 'var(--mono)', fontSize: 12, padding: 8 }} />
 
-            {vistaPrevia.length > 0 && (
+            {pegado.trim() && (
               <div style={{ fontSize: 12.5, color: 'var(--tinta-2)' }}>
-                Se han reconocido <strong>{vistaPrevia.filter(p => p.completo).length}</strong> partidos
-                {vistaPrevia.some(p => !p.completo) && ' (alguna línea no se ha entendido y se descartará)'}.
+                {vistaPrevia.length === 0
+                  ? 'No se ha reconocido ningún partido en lo pegado.'
+                  : <>Se han reconocido <strong>{vistaPrevia.length}</strong> partido{vistaPrevia.length === 1 ? '' : 's'}
+                      {vistaPrevia.length < 15 && ' (faltan algunos: los que no se reconozcan, rellénalos a mano abajo)'}:</>}
+                {vistaPrevia.length > 0 && (
+                  <ol style={{ margin: '6px 0 0', paddingLeft: 26, columns: 2, fontSize: 12.5 }}>
+                    {vistaPrevia.map(p => (
+                      <li key={p.orden} value={p.orden}>
+                        {p.local} – {p.visitante}
+                        {p.goles_local != null && <b> {p.goles_local}-{p.goles_visitante}</b>}
+                      </li>
+                    ))}
+                  </ol>
+                )}
               </div>
             )}
 
