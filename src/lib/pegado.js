@@ -22,7 +22,21 @@ import { idDeEquipo } from './equipos.js'
 import { limpiarNombreEquipo } from '../../scripts/lae.mjs'
 
 /**
- * Lo que se pega en la consola de la página (TuLotero, LAE o cualquier otra).
+ * Para TuLotero, jornadas pasadas y próximas. Lee los partidos directamente de
+ * su tabla (`.tl-selection-team__name`, comprobado el 2026-10-26 contra
+ * web.tulotero.es/resultados/11196), en orden, y los copia uno por línea:
+ * «Athletic Club (m) (12º) 3 - 0 At. Madrid (m) (4º)». El marcador se coge del
+ * primer número que haya en la fila de cada equipo, detrás de su nombre; en el
+ * pleno, detrás vienen además las opciones 0/1/2/M, que se ignoran.
+ *
+ * Si TuLotero cambia su maquetación y no encuentra la tabla, copia el texto
+ * de la página entera, que el lector de abajo también entiende.
+ */
+export const COMANDO_TULOTERO =
+  `(()=>{const ns=[...document.querySelectorAll('.tl-selection-team__name')];if(!ns.length){copy(document.body.innerText);console.warn('No encuentro la tabla de partidos de TuLotero: copio el texto de la página entera.');return}const gol=n=>{const f=n.closest('.tl-selection-team-table__match-row')||n.closest('tl-selection-team')?.parentElement;if(!f)return'';const todo=f.innerText||'',nom=n.innerText||n.textContent,k=todo.indexOf(nom);let t=(k<0?todo:todo.slice(k+nom.length)).match(/(?:^|\\s)(\\d{1,2}|M)(?=\\s|$)/g)||[];t=t.map(x=>x.trim());if(t.slice(-4).join()==='0,1,2,M')t=t.slice(0,-4);return t[0]||''};const l=[];for(let i=0;i+1<ns.length;i+=2){const a=ns[i],b=ns[i+1],ga=gol(a),gb=gol(b),na=a.textContent.trim(),nb=b.textContent.trim();l.push(ga&&gb?na+' '+ga+' - '+gb+' '+nb:na+' - '+nb)}copy(l.join('\\n'));console.log(l.length+' partidos copiados. Vuelve a la quiniela y pégalos.')})()`
+
+/**
+ * Para LAE o cualquier otra web.
  * Copia todo el texto visible, también el que vive dentro de componentes con
  * shadow DOM y de iframes del mismo origen, que es donde algunas webs pintan
  * los boletos.
@@ -31,13 +45,45 @@ export const COMANDO_COPIAR_PAGINA =
   `(()=>{const t=[document.body.innerText];const v=r=>r.querySelectorAll('*').forEach(e=>{if(e.shadowRoot){t.push([...e.shadowRoot.querySelectorAll('*')].map(x=>x.childElementCount?'':x.textContent).filter(Boolean).join('\\n'));v(e.shadowRoot)}});v(document);document.querySelectorAll('iframe').forEach(f=>{try{t.push(f.contentDocument.body.innerText)}catch(e){}});copy(t.join('\\n'));console.log('Copiado: vuelve a la quiniela y pégalo.')})()`
 
 const SEPARADOR = /\s+(?:-|–|—|vs\.?|v)\s+/i
-// «Betis 2 - 1 Sevilla» o «Betis 2-1 Sevilla».
-const CON_MARCADOR = /^(.+?)\s+(\d{1,2})\s*[-–—:]\s*(\d{1,2})\s+(.+)$/
+// «Betis 2 - 1 Sevilla», «Betis 2-1 Sevilla» o, en el pleno, «Getafe M - 1 Celta».
+const CON_MARCADOR = /^(.+?)\s+(\d{1,2}|M)\s*[-–—:]\s*(\d{1,2}|M)\s+(.+)$/i
+// TuLotero apellida cada equipo con su categoría y su puesto en la liga:
+// «ATHLETIC CLUB (M) (12º)». Es también lo que lo delata como equipo cuando
+// no está en nuestra lista (un filial, uno de Segunda RFEF…).
+const SUFIJO_TULOTERO = /\s*\((?:m|f|\d{1,2}\s*º)\)\s*$/i
+
+/**
+ * El nombre limpio: sin el puesto en la liga, sin el «(m)» que no aporta
+ * nada, conservando el «(F)» que sí distingue un partido femenino, y en
+ * minúsculas normales si venía todo en mayúsculas.
+ */
+export function limpiarNombrePegado(nombre) {
+  let n = String(nombre ?? '').replace(/\s+/g, ' ').trim()
+  n = n.replace(/\s*\(\d{1,2}\s*º\)\s*$/i, '')
+  n = limpiarNombreEquipo(n).replace(/\(f\)$/i, '(F)')
+  if (n && n === n.toUpperCase()) {
+    n = n.toLowerCase()
+      .replace(/(^|[\s.(-])(\p{L})/gu, (_, a, b) => a + b.toUpperCase())
+      .replace(/\b(De|Del|La|Las|Los)\b(?!$)/g, w => w.toLowerCase())
+      .replace(/^(de|del|la|las|los)\b/, w => w[0].toUpperCase() + w.slice(1))
+      .replace(/\(f\)$/i, '(F)')
+  }
+  return n
+}
+
+// «M» en el pleno son tres goles o más. Si los dos son «M», el marcador no
+// dice quién ganó: mejor no apuntar nada que apuntar un empate falso.
+const goles = (a, b) => {
+  if (a == null || b == null || a === '' || b === '') return [null, null]
+  const A = String(a).toUpperCase(), B = String(b).toUpperCase()
+  if (A === 'M' && B === 'M') return [null, null]
+  return [A === 'M' ? 3 : +A, B === 'M' ? 3 : +B]
+}
 // Lo que va delante del partido: «1», «1.», «14)», «P15», «Pleno al 15».
 const NUMERACION = /^(?:(?:p\s?15|pleno(?:\s+al)?\s+15)\s*[:.·)-]?\s*|\d{1,2}\s*[.·)-]?\s+)/i
 
 const limpiarLinea = (t) => String(t ?? '').replace(/\s+/g, ' ').trim()
-const esEquipo = (t) => !!idDeEquipo(t)
+const esEquipo = (t) => !!idDeEquipo(limpiarNombrePegado(t)) || SUFIJO_TULOTERO.test(t)
 // Un nombre de equipo razonable: corto, con letras, sin pinta de frase.
 const pareceNombre = (t) => t.length >= 2 && t.length <= 32 && /\p{L}/u.test(t) && t.split(' ').length <= 5
 
@@ -55,13 +101,14 @@ function porLineas(lineas) {
       if (partes.length !== 2) continue
       ;[local, visitante] = partes
     }
-    local = limpiarNombreEquipo(local)
-    visitante = limpiarNombreEquipo(visitante)
+    local = limpiarNombrePegado(local)
+    visitante = limpiarNombrePegado(visitante)
     if (!pareceNombre(local) || !pareceNombre(visitante)) continue
+    const [g1, g2] = goles(gl, gv)
     encontrados.push({
       local, visitante,
-      goles_local: gl == null ? null : +gl,
-      goles_visitante: gv == null ? null : +gv,
+      goles_local: g1,
+      goles_visitante: g2,
       conocidos: esEquipo(local) + esEquipo(visitante),
     })
   }
@@ -71,34 +118,45 @@ function porLineas(lineas) {
   return buenos
 }
 
-/** Intento 2: cada equipo en su línea, emparejados en orden. */
+/**
+ * Intento 2: cada equipo en su línea, emparejados en orden.
+ *
+ * Los números sueltos se interpretan por su posición: el primero detrás del
+ * local es su marcador, y el primero detrás del visitante, el suyo (así lo
+ * pinta TuLotero: «1 · ATHLETIC · 3 · AT. MADRID · 0 · 2 · RAYO…»). Un
+ * marcador entero en una línea («2-1») entre los dos equipos también vale.
+ */
 function porEquipos(lineas) {
   const partidos = []
-  let pendiente = null      // el local, esperando a su visitante
-  let numeros = []          // lo numérico entre los dos: el marcador
+  let local = null, gl = null, gv = null
+  let ultimo = null          // el partido recién cerrado, esperando su segundo marcador
   for (const cruda of lineas) {
-    const linea = cruda.replace(NUMERACION, '').trim()
-    if (/^\d{1,2}$/.test(cruda.trim())) {
-      if (pendiente) numeros.push(+cruda.trim())
+    const t = cruda.trim()
+    if (/^(\d{1,2}|M)$/i.test(t)) {
+      if (local && gl == null) gl = t
+      else if (!local && ultimo && ultimo.gv == null) ultimo.gv = t
       continue
     }
-    const marcador = cruda.trim().match(/^(\d{1,2})\s*[-–—:]\s*(\d{1,2})$/)
+    const marcador = t.match(/^(\d{1,2}|M)\s*[-–—:]\s*(\d{1,2}|M)$/i)
     if (marcador) {
-      if (pendiente) numeros = [+marcador[1], +marcador[2]]
+      if (local) { gl = marcador[1]; gv = marcador[2] }
       continue
     }
+    const linea = t.replace(NUMERACION, '').trim()
     if (!linea || !esEquipo(linea)) continue
-    const nombre = limpiarNombreEquipo(linea)
-    if (!pendiente) {
-      pendiente = nombre
-      numeros = []
+    if (!local) {
+      local = limpiarNombrePegado(linea); gl = null; gv = null
+      if (ultimo) ultimo = null
     } else {
-      const [gl, gv] = numeros.length === 2 ? numeros : [null, null]
-      partidos.push({ local: pendiente, visitante: nombre, goles_local: gl, goles_visitante: gv })
-      pendiente = null
+      ultimo = { local, visitante: limpiarNombrePegado(linea), gl, gv }
+      partidos.push(ultimo)
+      local = null
     }
   }
-  return partidos
+  return partidos.map(p => {
+    const [g1, g2] = goles(p.gl, p.gv)
+    return { local: p.local, visitante: p.visitante, goles_local: g1, goles_visitante: g2 }
+  })
 }
 
 /**

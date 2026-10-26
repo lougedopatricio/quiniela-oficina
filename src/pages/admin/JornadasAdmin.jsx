@@ -8,7 +8,7 @@ import {
 import { useAsync, Cargando, AvisoError, Portada, Seccion, Vacio, Escudo } from '../../components/ui.jsx'
 import { euros, fechaCorta } from '../../lib/formato.js'
 import { signoDeMarcador, PAGINAS } from '../../../scripts/lae.mjs'
-import { leerPartidosPegados, COMANDO_COPIAR_PAGINA } from '../../lib/pegado.js'
+import { leerPartidosPegados, COMANDO_COPIAR_PAGINA, COMANDO_TULOTERO } from '../../lib/pegado.js'
 
 const ESTADOS = ['borrador', 'abierta', 'cerrada', 'en_juego', 'finalizada']
 
@@ -319,10 +319,10 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
   // ANTES de tocar la tabla.
   const vistaPrevia = pegado.trim() ? leerPartidosPegados(pegado).partidos : []
 
-  async function copiarComando() {
+  async function copiarComando(cual) {
     try {
-      await navigator.clipboard.writeText(COMANDO_COPIAR_PAGINA)
-      setCopiado(true)
+      await navigator.clipboard.writeText(cual === 'tulotero' ? COMANDO_TULOTERO : COMANDO_COPIAR_PAGINA)
+      setCopiado(cual)
       setTimeout(() => setCopiado(false), 2500)
     } catch {
       alFallar(new Error('El navegador no ha dejado copiar: selecciona el comando del cuadro y cópialo a mano.'))
@@ -419,18 +419,32 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
                 escribir <code>allow pasting</code> (o <code>permitir pegar</code>) antes de dejarte pegar.
               </li>
               <li>
-                <button onClick={copiarComando} style={{ fontSize: 12.5, padding: '4px 10px' }}>
-                  {copiado ? 'Comando copiado ✓' : 'Copiar el comando'}
-                </button>{' '}
-                , pégalo en esa consola y pulsa Intro. Copia el texto de la página.
+                Copia el comando que toca, pégalo en esa consola y pulsa Intro:
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                  <button className="principal" onClick={() => copiarComando('tulotero')} style={{ fontSize: 12.5, padding: '4px 10px' }}>
+                    {copiado === 'tulotero' ? 'Copiado ✓' : 'Comando para TuLotero'}
+                  </button>
+                  <button onClick={() => copiarComando('otra')} style={{ fontSize: 12.5, padding: '4px 10px' }}>
+                    {copiado === 'otra' ? 'Copiado ✓' : 'Comando para LAE u otra web'}
+                  </button>
+                </div>
+                <span style={{ fontSize: 12.5, color: 'var(--tinta-3)' }}>
+                  El de TuLotero vale para jornadas pasadas (trae los marcadores) y próximas, y
+                  para las páginas de resultados y de jugar.
+                </span>
               </li>
               <li>Vuelve aquí y pégalo en el cuadro de abajo (Ctrl+V). Repasa los partidos antes de guardar.</li>
             </ol>
             <details style={{ fontSize: 12.5, color: 'var(--tinta-3)' }}>
-              <summary>Ver el comando</summary>
+              <summary>Ver los comandos</summary>
+              <div style={{ marginTop: 6 }}>TuLotero:</div>
+              <textarea readOnly value={COMANDO_TULOTERO} rows={3}
+                        onFocus={e => e.target.select()}
+                        style={{ fontFamily: 'var(--mono)', fontSize: 11, padding: 8, width: '100%' }} />
+              <div style={{ marginTop: 6 }}>LAE u otra web:</div>
               <textarea readOnly value={COMANDO_COPIAR_PAGINA} rows={3}
                         onFocus={e => e.target.select()}
-                        style={{ fontFamily: 'var(--mono)', fontSize: 11, padding: 8, width: '100%', marginTop: 6 }} />
+                        style={{ fontFamily: 'var(--mono)', fontSize: 11, padding: 8, width: '100%' }} />
             </details>
             <p style={{ margin: 0, fontSize: 12.5, color: 'var(--tinta-3)' }}>
               ¿Sin consola, desde el móvil? Selecciona los partidos en la página, cópialos y pégalos igual.

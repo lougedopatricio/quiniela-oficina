@@ -65,3 +65,72 @@ test('el sufijo de categoría de LAE no estorba', () => {
 test('un texto sin partidos no se inventa ninguno', () => {
   assert.equal(leerPartidosPegados('Hola\nEsto no es una quiniela\n12 - 14').partidos.length, 0)
 })
+
+// ---------------------------------------------------------------------------
+// TuLotero de verdad: el texto de web.tulotero.es/resultados/11196 (quiniela
+// J-4 de 2026-27) tal cual lo copia la consola, con su menú, la tabla de
+// premios y la barra de otras jornadas alrededor. Recortado lo que no
+// importa; los partidos y el orden, intactos.
+// ---------------------------------------------------------------------------
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+import { signoDeMarcador } from '../scripts/lae.mjs'
+import { limpiarNombrePegado } from '../src/lib/pegado.js'
+
+const TULOTERO_J4 = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'tulotero-resultados-j4.txt'), 'utf8')
+// Los signos oficiales de esa jornada, de la propia barra lateral de TuLotero.
+const SIGNOS_J4 = ['1', '1', '2', '2', '1', 'X', 'X', 'X', '2', '1', '2', '2', '1', 'X']
+
+test('TuLotero, jornada pasada copiada como texto: 15 partidos con sus marcadores', () => {
+  const { partidos } = leerPartidosPegados(TULOTERO_J4)
+  assert.equal(partidos.length, 15)
+  assert.deepEqual(partidos[0], { orden: 1, local: 'Athletic Club', visitante: 'At. Madrid', goles_local: 3, goles_visitante: 0, completo: true })
+  assert.equal(partidos[7].local, 'Real Sociedad B', 'un filial que no está en la lista de escudos no descuadra nada')
+  assert.equal(partidos[7].visitante, 'Tenerife')
+  assert.equal(partidos[10].local, 'Sevilla (F)')
+  assert.equal(partidos[11].local, 'Logroño (F)')
+  assert.deepEqual(
+    partidos.slice(0, 14).map(p => signoDeMarcador(p.goles_local, p.goles_visitante)),
+    SIGNOS_J4,
+    'los marcadores dan los signos oficiales de la jornada'
+  )
+  assert.deepEqual([partidos[14].local, partidos[14].visitante, partidos[14].goles_local, partidos[14].goles_visitante],
+    ['Getafe', 'Celta', 1, 1], 'el pleno, sin confundir su marcador con las opciones 0/1/2/M')
+})
+
+test('TuLotero, lo que copia su comando propio: una línea por partido', () => {
+  const texto = [
+    'Athletic Club (m) (12º) 3 - 0 At. Madrid (m) (4º)',
+    'Real Sociedad B (m) (13º) 1 - 1 Tenerife (m) (7º)',
+    'Logroño (f) (5º) 0 - 1 Athletic Club (f) (3º)',
+    'Getafe (m) (15º) M - 1 Celta (m) (17º)',
+    'Betis (m) (3º) M - M Sevilla (m) (9º)',
+    'Real Madrid (m) (1º) - Barcelona (m) (2º)',
+  ].join('\n')
+  const { partidos, metodo } = leerPartidosPegados(texto)
+  assert.equal(metodo, 'lineas')
+  assert.deepEqual(partidos.map(p => [p.local, p.visitante, p.goles_local, p.goles_visitante]), [
+    ['Athletic Club', 'At. Madrid', 3, 0],
+    ['Real Sociedad B', 'Tenerife', 1, 1],
+    ['Logroño (F)', 'Athletic Club (F)', 0, 1],
+    ['Getafe', 'Celta', 3, 1],
+    ['Betis', 'Sevilla', null, null],
+    ['Real Madrid', 'Barcelona', null, null],
+  ])
+})
+
+test('los nombres de TuLotero salen limpios', () => {
+  assert.equal(limpiarNombrePegado('ATHLETIC CLUB (M) (12º)'), 'Athletic Club')
+  assert.equal(limpiarNombrePegado('RACING DE SANTANDER (M) (10º)'), 'Racing de Santander')
+  assert.equal(limpiarNombrePegado('SEVILLA (F) (8º)'), 'Sevilla (F)')
+  assert.equal(limpiarNombrePegado('Alavés (m) (5º)'), 'Alavés')
+})
+
+test('los dos comandos de consola son JavaScript válido', async () => {
+  const { COMANDO_TULOTERO, COMANDO_COPIAR_PAGINA } = await import('../src/lib/pegado.js')
+  // Un escape mal puesto (\s que acaba siendo «s») ya rompió uno una vez.
+  assert.doesNotThrow(() => new Function(COMANDO_TULOTERO))
+  assert.doesNotThrow(() => new Function(COMANDO_COPIAR_PAGINA))
+  assert.match(COMANDO_TULOTERO, /\\s/, 'la expresión regular conserva sus \\s')
+})
