@@ -564,6 +564,33 @@ export async function crearJornada({ season_id, numero, abre_at, cierra_at, prec
   return data
 }
 
+/**
+ * Pone los equipos de una jornada desde el creador rápido.
+ *
+ * Actualiza los huecos que ya existan y crea los que falten. No toca ni el
+ * marcador ni el signo, ni los partidos marcados como sustituidos a mano.
+ */
+export async function ponerEquipos(roundId, partidos) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const existentes = lanzar(
+    await supabase.from('matches').select('id, orden, sustituido_de').eq('round_id', roundId)
+  )
+  const porOrden = new Map(existentes.map(m => [m.orden, m]))
+  const nuevos = []
+  for (const p of partidos) {
+    const m = porOrden.get(p.orden)
+    if (!m) { nuevos.push({ round_id: roundId, orden: p.orden, local: p.local, visitante: p.visitante }); continue }
+    if (m.sustituido_de) continue
+    const { error } = await supabase.from('matches')
+      .update({ local: p.local, visitante: p.visitante }).eq('id', m.id)
+    if (error) throw new Error(error.message)
+  }
+  if (nuevos.length) {
+    const { error } = await supabase.from('matches').insert(nuevos)
+    if (error) throw new Error(error.message)
+  }
+}
+
 export async function actualizarJornada(id, campos) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
   const { error } = await supabase.from('rounds').update(campos).eq('id', id)

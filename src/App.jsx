@@ -23,6 +23,7 @@ const BoletosAdmin  = lazy(() => import('./pages/admin/Boletos.jsx'))
 const Caja          = lazy(() => import('./pages/admin/Caja.jsx'))
 const Importar      = lazy(() => import('./pages/admin/Importar.jsx'))
 const ImprimirBoletos = lazy(() => import('./pages/admin/ImprimirBoletos.jsx'))
+const CrearQuiniela = lazy(() => import('./pages/admin/CrearQuiniela.jsx'))
 
 const SECCIONES = [
   { a: '/',         txt: 'Portada' },
@@ -123,6 +124,7 @@ export default function App() {
           }>
             <Route index element={<Navigate to="/admin/participantes" replace />} />
             <Route path="participantes" element={<Participantes />} />
+            <Route path="crear"         element={<CrearQuiniela />} />
             <Route path="jornadas"      element={<JornadasAdmin />} />
             <Route path="boletos"       element={<BoletosAdmin />} />
             <Route path="caja"          element={<Caja />} />

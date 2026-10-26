@@ -466,3 +466,38 @@ select:focus, input:focus, textarea:focus { outline: 2px solid var(--rojo); outl
 .directo .signo.fallo { background: transparent; color: var(--term-rojo); box-shadow: inset 0 0 0 1px #3d3630; }
 .directo .signo.vacio { background: transparent; color: var(--term-suave); }
 .directo .etiqueta { background: var(--term-panel); color: var(--term-suave); }
+
+/* Selector de equipo con escudos (creador rápido de quinielas) */
+.selector-equipo { position: relative; min-width: 0; }
+.selector-equipo__boton {
+  width: 100%; display: flex; align-items: center; gap: 8px; text-align: left;
+  padding: 6px 9px; text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 14px;
+  background: var(--papel); min-height: 36px;
+}
+.selector-equipo__nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.selector-equipo__panel {
+  position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; width: min(440px, 92vw);
+  background: var(--papel); border: 1px solid var(--regla-fuerte); box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  padding: 10px; display: grid; gap: 8px;
+}
+.selector-equipo__busca { display: flex; align-items: center; gap: 6px; }
+.selector-equipo__busca input { flex: 1; }
+.selector-equipo__pestanas { display: flex; gap: 4px; }
+.selector-equipo__pestanas button { padding: 3px 10px; font-size: 12px; }
+.selector-equipo__pestanas button.activo { background: var(--tinta); color: var(--papel); border-color: var(--tinta); }
+.selector-equipo__rejilla {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px;
+  max-height: 290px; overflow-y: auto;
+}
+.selector-equipo__rejilla button {
+  display: grid; justify-items: center; gap: 4px; padding: 7px 4px;
+  text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 11.5px; line-height: 1.2;
+  border-color: transparent; background: transparent;
+}
+.selector-equipo__rejilla button:hover { border-color: var(--regla-fuerte); background: var(--papel-2); }
+.selector-equipo__rejilla button.elegido { border-color: var(--tinta); background: var(--papel-2); font-weight: 600; }
+.selector-equipo__rejilla button.usado { opacity: .4; }
+.selector-equipo__otro { justify-self: start; font-size: 12px; padding: 4px 10px; }
+
+.crear-fila { display: grid; grid-template-columns: 34px 1fr 1fr auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--regla); }
+@media (max-width: 640px) { .crear-fila { grid-template-columns: 30px 1fr; } .crear-fila > :nth-child(3) { grid-column: 2; } .crear-fila > :nth-child(4) { grid-column: 2; } }
