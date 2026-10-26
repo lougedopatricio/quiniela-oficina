@@ -21,7 +21,7 @@ const VACIO = { nombre: '', apodo: '', alias: '', email: '', alternativos: '' }
  */
 const FILTROS = [
   { id: 'todos',     txt: 'Todos',                    pasa: () => true },
-  { id: 'sin-jugar', txt: 'Sin columna esta jornada', pasa: p => p.activo && p.juega_abierta === false },
+  { id: 'sin-jugar', txt: 'Aún no han jugado esta jornada', pasa: p => p.activo && p.juega_abierta === false },
   { id: 'deben',     txt: 'Deben dinero',             pasa: p => p.saldo_cents < 0 },
   { id: 'sin-cuenta',txt: 'Sin cuenta enlazada',      pasa: p => !p.user_id },
   { id: 'sin-apodo', txt: 'Sin apodo ni foto',        pasa: p => !p.apodo || !p.avatar_url },
@@ -154,9 +154,8 @@ export default function Participantes() {
                    nota={datos.length > activos.length ? `y ${datos.length - activos.length} inactivos` : 'Todos activos'} />
         <Destacado rotulo="Jornada abierta"
                    valor={hayAbierta ? `${hanJugado}/${activos.length}` : '—'}
-                   tono={hayAbierta && hanJugado < activos.length ? 'acento' : undefined}
                    nota={hayAbierta
-                     ? (hanJugado < activos.length ? `Faltan ${activos.length - hanJugado} columnas` : 'Ya han jugado todos')
+                     ? `han jugado ya · no es obligatorio jugar todas`
                      : 'No hay ninguna abierta'} />
         <Destacado rotulo="Deben" valor={deudores.length}
                    tono={deudores.length ? 'acento' : undefined}
@@ -421,8 +420,9 @@ export default function Participantes() {
 }
 
 /**
- * De un vistazo: si sigue entrando, cuánto juega y si le falta la columna de
- * la jornada abierta. `juega_abierta` es null cuando no hay ninguna abierta
+ * De un vistazo: si sigue entrando, cuánto juega y si ya ha echado la columna
+ * de la jornada abierta. No jugar una jornada es normal —nadie está obligado
+ * a jugarlas todas—, así que se dice sin marcarlo como fallo. `juega_abierta` es null cuando no hay ninguna abierta
  * (0016), y entonces no se dice nada en vez de marcar a todos en rojo.
  */
 function Actividad({ p }) {
@@ -439,7 +439,7 @@ function Actividad({ p }) {
         {p.ultima_columna && ` · la última el ${fechaCorta(p.ultima_columna)}`}
       </span>
       {p.activo && p.juega_abierta === true && <span className="etiqueta ok">Ya ha jugado</span>}
-      {p.activo && p.juega_abierta === false && <span className="etiqueta falta">Falta su columna</span>}
+      {p.activo && p.juega_abierta === false && <span className="etiqueta">Aún no ha jugado</span>}
     </div>
   )
 }

@@ -175,7 +175,7 @@ workflow** sigue ahí, con el rango de fechas a recuperar.
 | Quien no entre en la web | Su boleto se carga a mano (*Boletos*) o por Excel (*Importar*) |
 | Domingo noche | Metes los signos en *Partidos*. Con todos puestos, la jornada se liquida sola |
 | Cuando alguien te paga | Apuntas el movimiento y su saldo se actualiza |
-| Antes del cierre | *Participantes → Sin columna esta jornada* te dice a quién avisar |
+| Antes del cierre | *Participantes → Aún no han jugado esta jornada*, por si quieres recordárselo a alguien |
 
 Lo del domingo sería automático si la sincronización con LAE no estuviera
 bloqueada; mientras tanto, los signos se meten a mano igual que los partidos.

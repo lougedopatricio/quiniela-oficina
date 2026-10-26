@@ -105,3 +105,34 @@ test('una jornada nueva nace con el 15 como pleno por signo', async () => {
   const { rows: [m] } = await db.query(`select modo_puntuacion, exige_resultado from matches where round_id = $1`, [r.id])
   assert.deepEqual(m, { modo_puntuacion: 'pleno', exige_resultado: false })
 })
+
+// ---------------------------------------------------------------------------
+// 0019: el resumen de la jornada no multiplica boletos por puntuaciones
+// ---------------------------------------------------------------------------
+import { apostar } from './helpers.mjs'
+
+test('9 boletos son 9 en el resumen, no 81, y el dinero cuadra', async () => {
+  const db = await nuevaBase()
+  const alias = Array.from({ length: 9 }, (_, i) => `j${i}`)
+  const { seasonId, players } = await sembrarTemporada(db, { precio: 200, alias })
+  const r = await crearJornada(db, seasonId, 1, UNOS)
+  for (const a of alias) await apostar(db, r, players[a], UNOS)
+  await recalcular(db, r)
+
+  const { rows: [v] } = await db.query(
+    `select boletos::int, recaudacion_cents::int, premio_cents::int, al_bote_cents::int, mejor_puntuacion::int
+       from v_jornada_resumen where round_id = $1`, [r])
+  assert.deepEqual(v, { boletos: 9, recaudacion_cents: 1800, premio_cents: 900, al_bote_cents: 900, mejor_puntuacion: 14 })
+})
+
+test('quien no juega una jornada no cuenta en ella', async () => {
+  const db = await nuevaBase()
+  const { seasonId, players } = await sembrarTemporada(db, { alias: ['ana', 'bruno', 'carla'] })
+  const r = await crearJornada(db, seasonId, 1, UNOS)
+  await apostar(db, r, players.ana, UNOS)
+  await recalcular(db, r)
+  const { rows: [v] } = await db.query(`select boletos::int from v_jornada_resumen where round_id = $1`, [r])
+  assert.equal(v.boletos, 1)
+  const { rows } = await db.query(`select count(*)::int as n from ledger where round_id = $1 and tipo = 'cuota'`, [r])
+  assert.equal(rows[0].n, 1, 'solo paga cuota quien juega')
+})
