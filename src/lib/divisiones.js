@@ -13,25 +13,29 @@ import { _tablas, idDeEquipo } from './equipos.js'
 
 export const TEMPORADA = '2026-27'
 
+// Comprobado el 2026-10-26: ascendieron Racing (campeón), Deportivo y Málaga
+// (play-off, ante el Almería); bajaron Mallorca, Girona y Real Oviedo. A
+// Segunda subieron Tenerife, Eldense, Sabadell y Celta Fortuna, y bajaron
+// Mirandés, Huesca, Cultural Leonesa y Real Zaragoza.
 export const PRIMERA = [
   'Alavés', 'Athletic Club', 'Atlético de Madrid', 'Barcelona', 'Betis',
   'Celta', 'Deportivo', 'Elche', 'Espanyol', 'Getafe',
-  'Mallorca', 'Osasuna', 'Racing Santander', 'Rayo Vallecano', 'Real Madrid',
-  'Real Oviedo', 'Real Sociedad', 'Sevilla', 'Valencia', 'Villarreal',
+  'Levante', 'Málaga', 'Osasuna', 'Racing Santander', 'Rayo Vallecano',
+  'Real Madrid', 'Real Sociedad', 'Sevilla', 'Valencia', 'Villarreal',
 ]
 
 export const SEGUNDA = [
   'Albacete', 'Almería', 'Andorra', 'Burgos', 'Cádiz', 'Castellón',
-  'Ceuta', 'Córdoba', 'Cultural Leonesa', 'Eibar', 'Girona', 'Granada',
-  'Huesca', 'Las Palmas', 'Leganés', 'Levante', 'Málaga', 'Mirandés',
-  'Real Sociedad B', 'Real Zaragoza', 'Sporting', 'Tenerife',
+  'Celta Fortuna', 'Ceuta', 'Córdoba', 'Eibar', 'Eldense', 'Girona',
+  'Granada', 'Las Palmas', 'Leganés', 'Mallorca', 'Real Oviedo', 'Real Sociedad B',
+  'Real Valladolid', 'Sabadell', 'Sporting', 'Tenerife',
 ]
 
 // Cómo se escribe bonito cada club de la tabla de escudos que no esté ya en
 // las dos listas de arriba.
 const BONITOS = {
-  'eldense': 'Eldense', 'sabadell': 'Sabadell', 'real valladolid': 'Real Valladolid',
-  'racing de ferrol': 'Racing de Ferrol', 'celta fortuna': 'Celta Fortuna',
+  'huesca': 'Huesca', 'real zaragoza': 'Real Zaragoza', 'mirandes': 'Mirandés',
+  'cultural leonesa': 'Cultural Leonesa', 'racing de ferrol': 'Racing de Ferrol',
 }
 
 /** Todos los equipos con escudo que no están ni en Primera ni en Segunda. */
