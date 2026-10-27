@@ -195,12 +195,14 @@ export async function getJornada(roundId) {
   // `players`, pero no hay ninguna relación directa entre ellas, así que
   // PostgREST no puede unirlas con un embed. Se piden por separado y se
   // cruzan aquí por player_id.
-  const [round, partidos, boletos, scores] = await Promise.all([
+  const [round, partidos, boletos, scores, premios] = await Promise.all([
     supabase.from('v_rounds_precio').select('*').eq('id', roundId).single().then(lanzar),
     supabase.from('matches').select('*').eq('round_id', roundId).order('orden').then(lanzar),
     supabase.from('bets').select('player_id, picks, players(nombre, alias, apodo, avatar_url)').eq('round_id', roundId).then(lanzar),
     supabase.from('round_scores').select('player_id, aciertos, aciertos_provisional, es_ganador')
       .eq('round_id', roundId).then(lanzar),
+    // De la vista pública (0021): `ledger` solo deja ver el dinero propio.
+    supabase.from('v_premios').select('player_id, premio_cents').eq('round_id', roundId).then(lanzar),
   ])
   const resumen = lanzar(
     await supabase.from('v_jornada_resumen').select('*').eq('round_id', roundId).maybeSingle()
@@ -220,6 +222,7 @@ export async function getJornada(roundId) {
         avatar_url: b.players?.avatar_url ?? null,
         aciertos: aciertosVigentes(scoreDe[b.player_id], round.estado),
         es_ganador: scoreDe[b.player_id]?.es_ganador ?? false,
+        premio_cents: premios.find(p => p.player_id === b.player_id)?.premio_cents ?? 0,
         provisional: round.estado === 'en_juego',
       }))
       .sort((a, b) => b.aciertos - a.aciertos),
@@ -294,8 +297,12 @@ export async function getPerfil(playerId) {
     supabase.from('ledger').select('*').eq('player_id', playerId).order('fecha', { ascending: false }).then(lanzar),
   ])
 
+  // Los premios, de la vista pública (0021): en el expediente de otra persona
+  // `ledger` no devuelve nada, y la columna «Premio» salía vacía aunque
+  // hubiera ganado.
   const premioDe = Object.fromEntries(
-    movimientos.filter(m => m.tipo === 'premio').map(m => [m.round_id, m.importe_cents])
+    lanzar(await supabase.from('v_premios').select('round_id, premio_cents').eq('player_id', playerId))
+      .map(p => [p.round_id, p.premio_cents])
   )
 
   // El puesto no está en `round_scores`: sale de comparar con el resto de la

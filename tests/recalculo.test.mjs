@@ -84,3 +84,12 @@ test('cambiar el precio de la jornada rehace el reparto', async () => {
   const p = await premios(db, r)
   assert.equal(Object.values(p)[0], 500, 'la mitad de lo recaudado, al ganador')
 })
+
+test('los premios públicos (0021) siguen al recálculo', async () => {
+  const { db, r, players } = await jornadaLiquidada()
+  const ver = async () => (await db.query(
+    `select player_id, premio_cents from v_premios where round_id = $1`, [r])).rows
+  assert.deepEqual((await ver()).map(x => x.player_id), [players.ana])
+  await db.query(`update matches set signo = 'X' where round_id = $1 and orden in (1, 2, 3)`, [r])
+  assert.deepEqual((await ver()).map(x => x.player_id), [players.bruno])
+})
