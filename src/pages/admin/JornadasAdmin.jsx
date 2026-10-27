@@ -151,7 +151,15 @@ export default function JornadasAdmin() {
         )}
       </Seccion>
 
-      {abierta && <EditorPartidos roundId={abierta} alGuardar={refrescar} alFallar={fallo} />}
+      {abierta && (
+        <EditorPartidos roundId={abierta} alFallar={fallo}
+                        alGuardar={() => {
+                          // La base recalcula sola al cambiar los partidos (0020):
+                          // aquí solo hay que volver a leer cómo ha quedado.
+                          setAviso({ tipo: 'ok', txt: 'Partidos guardados. Los aciertos y el ganador ya están recalculados.' })
+                          refrescar()
+                        }} />
+      )}
 
       <PegarDatosLae alGuardar={refrescar} />
     </>
