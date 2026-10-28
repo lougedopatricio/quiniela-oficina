@@ -902,10 +902,10 @@ export async function getMovimientosManuales() {
  * Mete en la jornada los partidos y los resultados que trae el Excel de la
  * oficina.
  *
- * Nunca pisa nada: crea solo los partidos que la jornada todavía no tenga, y
- * pone el resultado solo donde aún no lo hay. Con la sincronización de LAE
- * bloqueada (ver docs/lae.md), el Excel es en la práctica de donde salen los
- * resultados, pero si ya se metieron a mano o llegaron de LAE, mandan esos.
+ * Crea los partidos que la jornada todavía no tenga (sin renombrar los que
+ * ya estén) y pone los resultados del Excel, corrigiendo el signo si el
+ * guardado era otro. Con la sincronización de LAE bloqueada (ver
+ * docs/lae.md), el Excel es en la práctica de donde salen los resultados.
  */
 export async function volcarPartidosDelExcel(roundId, partidos) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
@@ -928,10 +928,14 @@ export async function volcarPartidosDelExcel(roundId, partidos) {
     if (error) throw new Error(error.message)
   }
 
+  // Un resultado del Excel distinto del guardado lo corrige: el Excel es la
+  // hoja con la que se lleva la quiniela, y corregirlo y volver a subirlo es
+  // la forma natural de arreglar un signo mal metido. La base recalcula la
+  // jornada sola (0020).
   let conResultado = 0
   for (const p of partidos) {
     const m = porOrden.get(p.orden)
-    if (!m || m.signo || !p.resultado) continue
+    if (!m || !p.resultado || m.signo === p.resultado) continue
     const { error } = await supabase.from('matches')
       .update({ signo: p.resultado, estado: 'finalizado' }).eq('id', m.id)
     if (error) throw new Error(error.message)

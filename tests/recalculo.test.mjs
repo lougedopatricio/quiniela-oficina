@@ -93,3 +93,22 @@ test('los premios públicos (0021) siguen al recálculo', async () => {
   await db.query(`update matches set signo = 'X' where round_id = $1 and orden in (1, 2, 3)`, [r])
   assert.deepEqual((await ver()).map(x => x.player_id), [players.bruno])
 })
+
+test('devolver una jornada liquidada a «abierta» le quita el trofeo', async () => {
+  const { db, r } = await jornadaLiquidada()
+  await db.query(`update rounds set estado = 'abierta' where id = $1`, [r])
+  const { rows } = await db.query(`select count(*)::int as n from round_scores where round_id = $1 and es_ganador`, [r])
+  assert.equal(rows[0].n, 0)
+})
+
+test('pasarla de «abierta» a «cerrada» con todos los resultados la liquida sola', async () => {
+  const db = await nuevaBase()
+  const { seasonId, players } = await sembrarTemporada(db)
+  const r = await crearJornada(db, seasonId, 1, SIGNOS, { estado: 'abierta' })
+  await apostar(db, r, players.ana, SIGNOS)
+  await db.query(`update rounds set estado = 'cerrada' where id = $1`, [r])
+  const { rows: [j] } = await db.query(`select estado from rounds where id = $1`, [r])
+  assert.equal(j.estado, 'finalizada')
+  const { rows: [s] } = await db.query(`select es_ganador from round_scores where round_id = $1`, [r])
+  assert.equal(s.es_ganador, true)
+})

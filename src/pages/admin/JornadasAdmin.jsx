@@ -298,6 +298,17 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
   const cambiar = (orden, campo, valor) =>
     setBorrador(partidos.map(m => (m.orden === orden ? { ...m, [campo]: valor } : m)))
 
+  // Al teclear un marcador completo, el signo oficial pasa a ser el suyo. Antes
+  // eran dos campos sueltos y corregir el marcador de una jornada ya
+  // liquidada no cambiaba nada: solo puntúa el signo, y ese se quedaba como
+  // estaba. Si hace falta otro signo (un partido dado por perdido, por
+  // ejemplo), se pulsa a mano después.
+  const cambiarGoles = (m, campo, valor) => {
+    const nuevo = { ...m, [campo]: valor }
+    const signo = signoDeMarcador(nuevo.goles_local, nuevo.goles_visitante)
+    setBorrador(partidos.map(x => (x.orden === m.orden ? (signo ? { ...nuevo, signo } : nuevo) : x)))
+  }
+
   // Marca o desmarca un partido como sustituido a mano. Al marcarlo, se
   // guarda el enfrentamiento oficial que había antes de tocarlo, para que
   // quede constancia de qué se cambió. Es por partido, no por jornada
@@ -337,9 +348,9 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
     }
   }
 
-  // Si la página enseñaba marcadores (jornada ya jugada), entran también, pero
-  // solo donde todavía no hay signo: lo que ya esté metido o haya llegado de
-  // LAE manda.
+  // Si la página enseñaba marcadores (jornada ya jugada), entran también con
+  // su signo, aunque ya hubiera otro: se pega para corregir, y lo pegado es
+  // lo último que se sabe. Se repasa en la tabla antes de guardar.
   function volcarPegado() {
     const buenos = vistaPrevia.filter(p => p.completo)
 
@@ -350,7 +361,7 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
     setBorrador(partidos.map(m => {
       const nuevo = buenos.find(p => p.orden === m.orden)
       if (!nuevo || m.sustituido_de) return m
-      const conGoles = nuevo.goles_local != null && nuevo.goles_visitante != null && !m.signo
+      const conGoles = nuevo.goles_local != null && nuevo.goles_visitante != null
       return {
         ...m, local: nuevo.local, visitante: nuevo.visitante,
         ...(conGoles ? {
@@ -526,10 +537,10 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
                 </td>
                 <td className="num">
                   <input type="number" min="0" value={m.goles_local ?? ''} style={{ width: 46 }}
-                         onChange={e => cambiar(m.orden, 'goles_local', e.target.value === '' ? null : +e.target.value)} />
+                         onChange={e => cambiarGoles(m, 'goles_local', e.target.value === '' ? null : +e.target.value)} />
                   <span style={{ margin: '0 5px', color: 'var(--tinta-3)' }}>–</span>
                   <input type="number" min="0" value={m.goles_visitante ?? ''} style={{ width: 46 }}
-                         onChange={e => cambiar(m.orden, 'goles_visitante', e.target.value === '' ? null : +e.target.value)} />
+                         onChange={e => cambiarGoles(m, 'goles_visitante', e.target.value === '' ? null : +e.target.value)} />
                 </td>
                 <td>
                   {m.modo_puntuacion === 'no_puntua' ? (

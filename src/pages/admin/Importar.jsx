@@ -160,7 +160,7 @@ export default function Importar() {
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, paddingBottom: 4 }}>
             <input type="checkbox" checked={conPartidos} onChange={e => setConPartidos(e.target.checked)}
                    style={{ width: 16, height: 16 }} />
-            Meter también los partidos y los resultados del Excel (no pisa los que ya haya)
+            Meter también los partidos y los resultados del Excel (corrige los signos que hayan cambiado)
           </label>
         )}
 
