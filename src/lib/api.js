@@ -8,6 +8,7 @@ import { DEMO, jugadorDemo } from './demo.js'
 import { acumularAciertos } from './evolucion.js'
 import { puestoEn } from './puestos.js'
 import { nombreVisible } from './formato.js'
+import { numeroEnEnlace, esEnlaceCortoDeTiktok } from './tiktok.js'
 // Puro JS sin nada de Node, así que se puede importar tal cual en el
 // navegador: es el mismo parser que usa scripts/sync-lae.mjs, para no tener
 // dos versiones de "qué significa este JSON de LAE" que puedan divergir.
@@ -192,6 +193,38 @@ export async function getDatosRanking(seasonId) {
       })),
     })),
   }
+}
+
+/**
+ * El número de un vídeo de TikTok a partir de lo que se pegue.
+ *
+ * Con la dirección completa (www.tiktok.com/@alguien/video/1234…) sale
+ * directamente. Con el enlace corto de compartir (vm.tiktok.com/…) el número
+ * no va en el enlace: se le pregunta a TikTok por su servicio oEmbed, que es
+ * público. Si el navegador no deja (TikTok no siempre lo permite desde otra
+ * web), se pide pegar la dirección completa.
+ */
+export async function numeroDeTiktok(enlace) {
+  const t = String(enlace ?? '').trim()
+  const directo = numeroEnEnlace(t)
+  if (directo) return directo
+  if (esEnlaceCortoDeTiktok(t) || /^https?:\/\/(www\.)?tiktok\.com\//.test(t)) {
+    try {
+      const r = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(t)}`)
+      const j = await r.json()
+      const n = numeroEnEnlace(String(j.embed_product_id ?? '')) ??
+        String(j.html ?? '').match(/data-video-id="(\d{8,25})"/)?.[1]
+      if (n) return n
+    } catch { /* lo de abajo */ }
+    throw new Error('No he podido leer ese enlace corto. Ábrelo en el navegador y pega la dirección completa que sale arriba (la que lleva /video/ y un número).')
+  }
+  throw new Error('Eso no parece un enlace de TikTok.')
+}
+
+export async function ponerMemeDeLaJornada(seasonId, tiktokId) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const { error } = await supabase.from('seasons').update({ meme_tiktok_id: tiktokId || null }).eq('id', seasonId)
+  if (error) throw new Error(error.message)
 }
 
 // ---------------------------------------------------------------------------

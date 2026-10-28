@@ -553,3 +553,13 @@ select:focus, input:focus, textarea:focus { outline: 2px solid var(--rojo); outl
   font-size: 17px; line-height: 1.1; letter-spacing: .02em;
   text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 2px 0 #000, 2px 0 0 #000, 0 -2px 0 #000, -2px 0 0 #000;
 }
+
+/* Portada con el meme de la jornada en un lateral */
+.portada-con-lateral { display: grid; gap: 24px; align-items: start; }
+@media (min-width: 900px) { .portada-con-lateral { grid-template-columns: minmax(0, 1fr) 300px; } }
+.portada-con-lateral .destacado.cuatro { grid-template-columns: 1fr 1fr; }
+.meme-jornada { padding: 14px; border: 1px solid var(--regla-fuerte); background: var(--papel); margin-top: 28px; }
+.meme-jornada-video { margin-top: 8px; aspect-ratio: 9 / 16; width: 100%; background: #000; }
+.meme-jornada-video iframe { width: 100%; height: 100%; border: 0; display: block; }
+.meme-jornada-vacio { margin-top: 8px; padding: 22px 12px; text-align: center; font-size: 13px; color: var(--tinta-3); background: var(--papel-2); }
+.meme-jornada-enlace { display: inline-block; margin-top: 8px; font-size: 12px; color: var(--rojo); text-decoration: underline; }

@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Ticket, BarChart3, CalendarDays, PiggyBank, Wallet, UserRound, Trophy, Printer } from 'lucide-react'
-import { getTemporada, getBote, getJornadas, getJornada, getClasificacion } from '../lib/api.js'
+import { getTemporada, getBote, getJornadas, getJornada, getClasificacion, numeroDeTiktok, ponerMemeDeLaJornada } from '../lib/api.js'
 import { useAsync, Cargando, Vacio, AvisoError, Portada, Destacado, Seccion } from '../components/ui.jsx'
 import { euros, cuentaAtras, fechaHora } from '../lib/formato.js'
 import { useSesion } from '../lib/sesion.js'
@@ -46,6 +47,8 @@ export default function Inicio() {
 
   return (
     <>
+      <div className="portada-con-lateral">
+      <div>
       <Portada
         antetitulo={
           enJuego
@@ -81,6 +84,9 @@ export default function Inicio() {
           <Link to="/ranking" className="boton">Ver el ranking</Link>
         </div>
       </Portada>
+      </div>
+      <MemeDeLaJornada season={season} puedeCambiarlo={MODO_DEMO || sesion.esAdmin} />
+      </div>
 
       <section className="bienvenida">
         <div className="bienvenida-cabecera">
@@ -142,6 +148,76 @@ export default function Inicio() {
         </p>
       )}
     </>
+  )
+}
+
+/**
+ * El vídeo de TikTok de la semana, con el reproductor oficial de TikTok: el
+ * vídeo se ve desde allí, no se copia. Solo se guarda su número (0024), y la
+ * dirección del reproductor la monta esta página, así que no se puede colar
+ * otra web. El administrador lo cambia aquí mismo.
+ */
+function MemeDeLaJornada({ season, puedeCambiarlo }) {
+  const [id, setId] = useState(season.meme_tiktok_id ?? null)
+  const [enlace, setEnlace] = useState('')
+  const [aviso, setAviso] = useState(null)
+  const [editando, setEditando] = useState(false)
+
+  if (!id && !puedeCambiarlo) return null
+
+  async function guardar(e) {
+    e.preventDefault()
+    setAviso('Buscando el vídeo…')
+    try {
+      const nuevo = enlace.trim() ? await numeroDeTiktok(enlace) : null
+      await ponerMemeDeLaJornada(season.id, nuevo)
+      setId(nuevo); setEnlace(''); setEditando(false); setAviso(null)
+    } catch (err) { setAviso(err.message) }
+  }
+
+  return (
+    <aside className="meme-jornada">
+      <div className="rotulo">Meme de la jornada</div>
+      {id ? (
+        <div className="meme-jornada-video">
+          <iframe
+            src={`https://www.tiktok.com/player/v1/${id}?description=1&music_info=0&rel=0&native_context_menu=0`}
+            title="Meme de la jornada (TikTok)"
+            allow="encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        </div>
+      ) : (
+        <div className="meme-jornada-vacio">Todavía no hay meme esta semana. Pega abajo el enlace de un TikTok.</div>
+      )}
+      {id && (
+        <a href={`https://www.tiktok.com/video/${id}`} target="_blank" rel="noreferrer" className="meme-jornada-enlace">
+          Verlo en TikTok ↗
+        </a>
+      )}
+      {puedeCambiarlo && (editando || !id ? (
+        <form onSubmit={guardar} style={{ display: 'grid', gap: 6, marginTop: 10 }}>
+          <input value={enlace} onChange={e => setEnlace(e.target.value)}
+                 placeholder="https://www.tiktok.com/@…/video/…" />
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button className="principal" type="submit" style={{ padding: '5px 11px' }}
+                    disabled={!enlace.trim() && !id}>
+              {enlace.trim() || !id ? 'Poner este' : 'Quitar el meme'}
+            </button>
+            {id && <button type="button" onClick={() => { setEditando(false); setAviso(null) }} style={{ padding: '5px 11px' }}>Cancelar</button>}
+          </div>
+          <span style={{ fontSize: 11.5, color: 'var(--tinta-3)' }}>
+            Vale el enlace de «Compartir» o la dirección completa del vídeo. Solo lo ves tú, que eres administrador.
+          </span>
+        </form>
+      ) : (
+        <button type="button" onClick={() => setEditando(true)} style={{ marginTop: 10, fontSize: 12, padding: '4px 10px' }}>
+          Cambiar el meme
+        </button>
+      ))}
+      {aviso && <div className="aviso" style={{ marginTop: 8, fontSize: 12.5 }}>{aviso}</div>}
+    </aside>
   )
 }
 
