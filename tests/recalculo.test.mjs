@@ -112,3 +112,24 @@ test('pasarla de «abierta» a «cerrada» con todos los resultados la liquida s
   const { rows: [s] } = await db.query(`select es_ganador from round_scores where round_id = $1`, [r])
   assert.equal(s.es_ganador, true)
 })
+
+test('el saldo del bote va por jornada aunque se recalculen en otro orden', async () => {
+  const db = await nuevaBase()
+  const { seasonId, players } = await sembrarTemporada(db, { precio: 100 })
+  const jornadas = []
+  for (const n of [1, 2, 3]) {
+    const r = await crearJornada(db, seasonId, n, SIGNOS)
+    for (const a of ['ana', 'bruno', 'carla'].slice(0, n + 1 > 3 ? 3 : n + 1)) await apostar(db, r, players[a], columnaCon(SIGNOS, 10))
+    jornadas.push(r)
+  }
+  // Se recalcula la 3 antes que la 2: sus apuntes del bote quedan con fechas
+  // en ese orden, que es lo que descolocaba la suma.
+  await recalcular(db, jornadas[0]); await recalcular(db, jornadas[2]); await recalcular(db, jornadas[1])
+  const { rows } = await db.query(
+    `select jornada, aporte_cents::int as a, saldo_cents::int as s from v_bote_evolucion order by jornada`)
+  let acumulado = 0
+  for (const f of rows) {
+    acumulado += f.a
+    assert.equal(f.s, acumulado, `jornada ${f.jornada}`)
+  }
+})

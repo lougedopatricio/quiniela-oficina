@@ -30,12 +30,18 @@ export default function Caja() {
     if (!form.player_id || !Number.isFinite(cents) || cents === 0) {
       return setAviso({ tipo: 'error', txt: 'Elige a alguien y pon un importe distinto de cero.' })
     }
+    // «Premio entregado» es dinero que sale hacia el jugador: le baja el saldo
+    // lo mismo que le subió el premio. Se guarda como ajuste negativo —en la
+    // base no hace falta un tipo nuevo—, pero aquí se teclea en positivo,
+    // que es como se piensa («le he dado 6 €»).
+    const entregado = form.tipo === 'entregado'
     try {
       await registrarMovimiento({
         player_id: form.player_id,
-        tipo: form.tipo,
-        importe_cents: cents,
-        nota: form.nota.trim() || (form.tipo === 'pago' ? 'Pago en efectivo' : 'Ajuste manual'),
+        tipo: entregado ? 'ajuste' : form.tipo,
+        importe_cents: entregado ? -Math.abs(cents) : cents,
+        nota: form.nota.trim() || (entregado ? 'Premio entregado en mano'
+          : form.tipo === 'pago' ? 'Pago en efectivo' : 'Ajuste manual'),
       })
       setForm({ player_id: '', euros: '', tipo: 'pago', nota: '' })
       setAviso({ tipo: 'ok', txt: 'Movimiento anotado.' })
@@ -85,7 +91,8 @@ export default function Caja() {
           <label style={{ display: 'grid', gap: 4 }}>
             <span className="rotulo">Tipo</span>
             <select value={form.tipo} onChange={e => setForm({ ...form, tipo: e.target.value })}>
-              <option value="pago">Pago recibido</option>
+              <option value="pago">Pago recibido (te da dinero)</option>
+              <option value="entregado">Premio entregado (le das dinero)</option>
               <option value="ajuste">Ajuste</option>
             </select>
           </label>
@@ -107,8 +114,10 @@ export default function Caja() {
           <button className="principal" type="submit">Anotar</button>
         </form>
         <p style={{ color: 'var(--tinta-3)', fontSize: 13, margin: 0 }}>
-          Un pago se anota en positivo: sube el saldo de esa persona hacia cero. Para
-          corregir algo a la baja, usa un ajuste con importe negativo.
+          <b>Pago recibido</b>: alguien te da dinero (sus cuotas); le sube el saldo.
+          <b> Premio entregado</b>: le das tú su premio; le baja el saldo lo mismo que se lo
+          subió el premio. Los dos se teclean en positivo. Un <b>ajuste</b> es para
+          cualquier otra corrección, con signo.
         </p>
       </Seccion>
 
