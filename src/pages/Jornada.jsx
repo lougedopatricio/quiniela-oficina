@@ -177,7 +177,7 @@ export default function Jornada() {
             </thead>
             <tbody>
               {partidos.map(m => (
-                <tr key={m.orden} style={m.orden === 15 ? { color: 'var(--tinta-3)' } : undefined}>
+                <tr key={m.orden} style={m.modo_puntuacion === 'no_puntua' ? { color: 'var(--tinta-3)' } : undefined}>
                   <td className="posicion">{String(m.orden).padStart(2, '0')}</td>
                   <td>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
@@ -185,14 +185,18 @@ export default function Jornada() {
                       <span style={{ color: 'var(--tinta-3)' }}>–</span>
                       <Equipo nombre={m.visitante} laeId={m.lae_id_visitante} alinear="derecha" />
                     </span>
-                    {m.orden === 15 && <span className="etiqueta" style={{ marginLeft: 10 }}>Pleno al 15 · no puntúa</span>}
+                    {m.estado === 'aplazado'
+                      ? <span className="etiqueta" style={{ marginLeft: 10 }}>Aplazado · no cuenta</span>
+                      : m.modo_puntuacion === 'pleno'
+                        ? <span className="etiqueta oro" style={{ marginLeft: 10 }}>Pleno al 15</span>
+                        : m.modo_puntuacion === 'no_puntua' && <span className="etiqueta" style={{ marginLeft: 10 }}>No puntúa</span>}
                     {m.sustituido_de && <span className="etiqueta oro" style={{ marginLeft: 10 }}>Cambiado</span>}
                   </td>
                   <td className="num">
                     {m.goles_local != null ? `${m.goles_local} – ${m.goles_visitante}` : '—'}
                   </td>
                   <td className="num">
-                    {m.orden === 15 ? '—'
+                    {m.modo_puntuacion === 'no_puntua' ? '—'
                       : m.signo ? <span className="signo oficial">{m.signo}</span>
                       : m.signo_provisional ? <span className="signo" title="Provisional">{m.signo_provisional}</span>
                       : <span className="signo vacio">·</span>}

@@ -319,7 +319,30 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
   // La base solo admite un pleno por jornada (índice único). Se resuelve aquí
   // en vez de dejar que reviente al guardar: marcar uno nuevo degrada el
   // anterior a partido normal, que es lo que se quiere decir al cambiarlo.
+  //
+  // «Aplazado / cancelado» no es un modo de la base sino una combinación: el
+  // partido pasa a no puntuar y queda en estado 'aplazado', sin signo. Así
+  // toda la puntuación (aciertos, quién gana, cuándo se abre el bote) ya lo
+  // trata bien sin tocar el SQL: la jornada se juega sobre los que quedan.
+  // Al quitarlo, vuelve a ser el partido que era (el 15, pleno).
   function cambiarModo(m, modo) {
+    if (modo === 'aplazado') {
+      return setBorrador(partidos.map(x => (x.orden === m.orden
+        ? { ...x, modo_puntuacion: 'no_puntua', exige_resultado: false, estado: 'aplazado', signo: null, signo_provisional: null }
+        : x)))
+    }
+    if (m.estado === 'aplazado') {
+      const vuelve = modo === 'no_puntua' ? 'no_puntua' : modo
+      m = { ...m, estado: m.signo ? 'finalizado' : 'pendiente' }
+      if (vuelve === 'pleno' || vuelve === 'normal') {
+        return setBorrador(partidos.map(x => {
+          if (x.orden === m.orden) return { ...m, modo_puntuacion: vuelve }
+          if (vuelve === 'pleno' && x.modo_puntuacion === 'pleno') return { ...x, modo_puntuacion: 'normal', exige_resultado: false }
+          return x
+        }))
+      }
+      return setBorrador(partidos.map(x => (x.orden === m.orden ? { ...m, modo_puntuacion: 'no_puntua' } : x)))
+    }
     setBorrador(partidos.map(x => {
       if (x.orden === m.orden) {
         return { ...x, modo_puntuacion: modo, exige_resultado: modo === 'pleno' ? x.exige_resultado : false }
@@ -361,6 +384,8 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
     setBorrador(partidos.map(m => {
       const nuevo = buenos.find(p => p.orden === m.orden)
       if (!nuevo || m.sustituido_de) return m
+      // Un aplazado conserva sus equipos pero no recibe marcador ni signo.
+      if (m.estado === 'aplazado') return { ...m, local: nuevo.local, visitante: nuevo.visitante }
       const conGoles = nuevo.goles_local != null && nuevo.goles_visitante != null
       return {
         ...m, local: nuevo.local, visitante: nuevo.visitante,
@@ -515,7 +540,7 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
           </thead>
           <tbody>
             {partidos.map(m => (
-              <tr key={m.orden} style={m.orden === 15 ? { opacity: .55 } : undefined}>
+              <tr key={m.orden} style={m.estado === 'aplazado' ? { opacity: .55 } : undefined}>
                 <td className="posicion">{String(m.orden).padStart(2, '0')}</td>
                 {/* El escudo aparece en cuanto el nombre se reconoce, así que
                     hace de acuse de recibo mientras se teclea: si sigue
@@ -543,7 +568,9 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
                          onChange={e => cambiarGoles(m, 'goles_visitante', e.target.value === '' ? null : +e.target.value)} />
                 </td>
                 <td>
-                  {m.modo_puntuacion === 'no_puntua' ? (
+                  {m.estado === 'aplazado' ? (
+                    <span className="etiqueta">Aplazado</span>
+                  ) : m.modo_puntuacion === 'no_puntua' ? (
                     <span style={{ color: 'var(--tinta-3)', fontSize: 12.5 }}>No puntúa</span>
                   ) : m.modo_puntuacion === 'pleno' && m.exige_resultado ? (
                     // Aquí no decide el signo sino el marcador de arriba, así
@@ -583,12 +610,13 @@ function EditorPartidos({ roundId, alGuardar, alFallar }) {
                     quiniela oficial, pero se puede cambiar en cualquiera. */}
                 <td>
                   <div style={{ display: 'grid', gap: 4 }}>
-                    <select value={m.modo_puntuacion ?? 'normal'}
+                    <select value={m.estado === 'aplazado' ? 'aplazado' : (m.modo_puntuacion ?? 'normal')}
                             onChange={e => cambiarModo(m, e.target.value)}
                             style={{ fontSize: 12, padding: '4px 6px' }}>
                       <option value="normal">Partido normal</option>
                       <option value="pleno">Pleno (abre el bote)</option>
                       <option value="no_puntua">No puntúa</option>
+                      <option value="aplazado">Aplazado / cancelado</option>
                     </select>
                     {m.modo_puntuacion === 'pleno' && (
                       <label style={{ display: 'flex', gap: 5, alignItems: 'center', fontSize: 11.5, color: 'var(--tinta-2)' }}>

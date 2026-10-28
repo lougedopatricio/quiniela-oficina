@@ -910,7 +910,7 @@ export async function getMovimientosManuales() {
 export async function volcarPartidosDelExcel(roundId, partidos) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
   const existentes = lanzar(
-    await supabase.from('matches').select('id, orden, signo').eq('round_id', roundId)
+    await supabase.from('matches').select('id, orden, signo, estado').eq('round_id', roundId)
   )
   const porOrden = new Map(existentes.map(m => [m.orden, m]))
 
@@ -935,7 +935,9 @@ export async function volcarPartidosDelExcel(roundId, partidos) {
   let conResultado = 0
   for (const p of partidos) {
     const m = porOrden.get(p.orden)
-    if (!m || !p.resultado || m.signo === p.resultado) continue
+    // Un partido aplazado no recibe resultado: no cuenta, aunque el Excel
+    // traiga algo en su fila.
+    if (!m || m.estado === 'aplazado' || !p.resultado || m.signo === p.resultado) continue
     const { error } = await supabase.from('matches')
       .update({ signo: p.resultado, estado: 'finalizado' }).eq('id', m.id)
     if (error) throw new Error(error.message)

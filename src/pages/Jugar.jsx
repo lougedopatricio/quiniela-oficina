@@ -146,7 +146,7 @@ export default function Jugar() {
                         <Equipo nombre={m.visitante} laeId={m.lae_id_visitante} alinear="derecha" />
                       </span>
                       {m.modo_puntuacion === 'pleno' && <span className="etiqueta oro" style={{ marginLeft: 10 }}>Pleno</span>}
-                      {noPuntua && <span className="etiqueta" style={{ marginLeft: 10 }}>No puntúa</span>}
+                      {noPuntua && <span className="etiqueta" style={{ marginLeft: 10 }}>{m.estado === 'aplazado' ? 'Aplazado · no cuenta' : 'No puntúa'}</span>}
                     </td>
                     <td>
                       {noPuntua ? <span style={{ color: 'var(--tinta-3)', fontSize: 12.5 }}>—</span>

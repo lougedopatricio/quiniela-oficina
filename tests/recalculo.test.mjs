@@ -133,3 +133,29 @@ test('el saldo del bote va por jornada aunque se recalculen en otro orden', asyn
     assert.equal(f.s, acumulado, `jornada ${f.jornada}`)
   }
 })
+
+test('un partido aplazado no cuenta: la jornada se reparte sobre los demás y el bote sigue abriéndose', async () => {
+  const db = await nuevaBase()
+  const { seasonId, players } = await sembrarTemporada(db, { precio: 200 })
+  const r = await crearJornada(db, seasonId, 1, SIGNOS, { estado: 'cerrada', pleno: true })
+  await db.query(`update matches set exige_resultado = false where round_id = $1 and orden = 15`, [r])
+  // Ana falla justo el partido que luego se aplaza; Bruno falla otro.
+  const ana = [...SIGNOS, '1']; ana[4] = '2'
+  const bruno = [...SIGNOS, '1']; bruno[0] = '2'
+  await apostar(db, r, players.ana, ana)
+  await apostar(db, r, players.bruno, bruno)
+  await recalcular(db, r)
+
+  // Se aplaza el 5, como hace el editor: no puntúa, estado aplazado, sin signo.
+  await db.query(`update matches set modo_puntuacion = 'no_puntua', estado = 'aplazado', signo = null
+                   where round_id = $1 and orden = 5`, [r])
+  const { rows } = await db.query(
+    `select p.alias, rs.aciertos, rs.es_ganador from round_scores rs join players p on p.id = rs.player_id
+      where round_id = $1 order by p.alias`, [r])
+  assert.deepEqual(rows.map(x => [x.alias, x.aciertos, x.es_ganador]), [['ana', 14, true], ['bruno', 12, false]],
+    'Ana acierta los 13 que quedan y el pleno: 14, que ahora es «todo»')
+  const { rows: [j] } = await db.query(`select estado from rounds where id = $1`, [r])
+  assert.equal(j.estado, 'finalizada')
+  const { rows: [b] } = await db.query(`select salida_cents::int from pot_movements where round_id = $1`, [r])
+  assert.ok(b.salida_cents > 0, 'acertarlo todo sin el aplazado revienta el bote')
+})
