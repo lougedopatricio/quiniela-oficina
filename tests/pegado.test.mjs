@@ -134,3 +134,10 @@ test('los dos comandos de consola son JavaScript válido', async () => {
   assert.doesNotThrow(() => new Function(COMANDO_COPIAR_PAGINA))
   assert.match(COMANDO_TULOTERO, /\\s/, 'la expresión regular conserva sus \\s')
 })
+
+test('una jornada de selecciones copiada de TuLotero también se lee', () => {
+  const texto = ['1', 'ESPAÑA (M) (1º)', '2', 'TURQUÍA (M) (2º)', '0', '2', 'ITALIA (M) (3º)', '1', 'REP. CHECA (M) (4º)', '1'].join('\n')
+  const { partidos } = leerPartidosPegados(texto)
+  assert.deepEqual(partidos.map(p => [p.local, p.visitante, p.goles_local, p.goles_visitante]),
+    [['España', 'Turquía', 2, 0], ['Italia', 'Rep. Checa', 1, 1]])
+})

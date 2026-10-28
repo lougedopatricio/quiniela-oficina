@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Trophy } from 'lucide-react'
 import { iniciales, euros, claseDinero } from '../lib/formato.js'
 import { idDeEquipo } from '../lib/equipos.js'
+import { banderaDe } from '../lib/selecciones.js'
 
 /** Carga asíncrona con estados de carga y error, para no repetirlo en cada pantalla. */
 export function useAsync(fn, deps = []) {
@@ -113,6 +114,19 @@ export const Escudo = ({ nombre, laeId, tamano = 22 }) => {
   const [rota, setRota] = useState(false)
   const estilo = { width: tamano, height: tamano }
   const id = laeId ?? idDeEquipo(nombre)
+  // Una selección no tiene escudo de club: va su bandera, dibujada en
+  // src/lib/selecciones.js. Los dibujos son nuestros, no vienen de fuera.
+  const bandera = !laeId && banderaDe(nombre)
+  if (bandera) {
+    return (
+      <svg className="escudo bandera" style={{ width: tamano, height: tamano }} viewBox="-1 -6 32 32"
+           role="img" aria-label={nombre}>
+        <title>{nombre}</title>
+        <g dangerouslySetInnerHTML={{ __html: bandera }} />
+        <rect x="0" y="0" width="30" height="20" fill="none" stroke="rgba(0,0,0,.25)" strokeWidth="0.6" />
+      </svg>
+    )
+  }
 
   if (!id || rota) {
     return (

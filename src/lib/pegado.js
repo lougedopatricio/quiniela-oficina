@@ -19,6 +19,7 @@
 // ===========================================================================
 
 import { idDeEquipo } from './equipos.js'
+import { esSeleccion } from './selecciones.js'
 import { limpiarNombreEquipo } from '../../scripts/lae.mjs'
 
 /**
@@ -83,7 +84,7 @@ const goles = (a, b) => {
 const NUMERACION = /^(?:(?:p\s?15|pleno(?:\s+al)?\s+15)\s*[:.·)-]?\s*|\d{1,2}\s*[.·)-]?\s+)/i
 
 const limpiarLinea = (t) => String(t ?? '').replace(/\s+/g, ' ').trim()
-const esEquipo = (t) => !!idDeEquipo(limpiarNombrePegado(t)) || SUFIJO_TULOTERO.test(t)
+const esEquipo = (t) => !!idDeEquipo(limpiarNombrePegado(t)) || esSeleccion(limpiarNombrePegado(t)) || SUFIJO_TULOTERO.test(t)
 // Un nombre de equipo razonable: corto, con letras, sin pinta de frase.
 const pareceNombre = (t) => t.length >= 2 && t.length <= 32 && /\p{L}/u.test(t) && t.split(' ').length <= 5
 

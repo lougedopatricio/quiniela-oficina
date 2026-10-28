@@ -10,6 +10,7 @@
 // ===========================================================================
 
 import { _tablas, idDeEquipo } from './equipos.js'
+import { SELECCIONES } from './selecciones.js'
 
 export const TEMPORADA = '2026-27'
 
@@ -49,5 +50,6 @@ export const OTROS = (() => {
 export const GRUPOS = [
   { id: 'primera', txt: 'Primera', equipos: PRIMERA },
   { id: 'segunda', txt: 'Segunda', equipos: SEGUNDA },
+  { id: 'selecciones', txt: 'Selecciones', equipos: SELECCIONES },
   { id: 'otros', txt: 'Otros', equipos: OTROS },
 ]
