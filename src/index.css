@@ -501,3 +501,21 @@ select:focus, input:focus, textarea:focus { outline: 2px solid var(--rojo); outl
 
 .crear-fila { display: grid; grid-template-columns: 34px 1fr 1fr auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--regla); }
 @media (max-width: 640px) { .crear-fila { grid-template-columns: 30px 1fr; } .crear-fila > :nth-child(3) { grid-column: 2; } .crear-fila > :nth-child(4) { grid-column: 2; } }
+
+/* Ranking */
+.pestanas-mini { display: inline-flex; gap: 4px; }
+.pestanas-mini button { padding: 3px 10px; font-size: 12px; }
+.pestanas-mini button.activo { background: var(--tinta); color: var(--papel); border-color: var(--tinta); }
+.chip-ranking { display: inline-flex; align-items: center; gap: 6px; padding-left: 4px; }
+.chip-ranking.activo, .chip-ranking.activo:hover { background: var(--papel); color: var(--tinta); font-weight: 600; }
+.tabla-ranking th.ordenable { padding: 0; white-space: nowrap; }
+.tabla-ranking th.ordenable button {
+  all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 3px;
+  padding: 8px 6px; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit;
+}
+.tabla-ranking th.ordenable button:hover { color: var(--tinta); }
+.tabla-ranking th.ordenable button:focus-visible { outline: 2px solid var(--rojo); outline-offset: -2px; }
+.tabla-ranking th.activa { color: var(--rojo); }
+.tabla-ranking td.num { white-space: nowrap; }
+.solo-movil { display: none; }
+@media (max-width: 700px) { .solo-movil { display: grid; } }

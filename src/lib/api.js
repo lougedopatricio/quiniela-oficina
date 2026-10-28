@@ -144,6 +144,56 @@ export async function getEvolucion(seasonId) {
   }
 }
 
+/**
+ * Lo que necesita la página de Ranking: las jornadas finalizadas con sus
+ * partidos y los boletos de cada uno, para leerlos partido a partido.
+ *
+ * Solo finalizadas: las columnas ajenas de una jornada abierta no se pueden
+ * leer (0003), y con datos provisionales las cifras bailarían. Las cuentas
+ * las hace src/lib/ranking.js.
+ */
+export async function getDatosRanking(seasonId) {
+  if (MODO_DEMO) {
+    return ok({
+      jugadores: DEMO.jugadores.map(j => ({ ...j, nombre: nombreVisible(j) })),
+      jornadas: DEMO.rounds.filter(r => r.estado === 'finalizada').map(r => ({
+        id: r.id, numero: r.numero, partidos: r.partidos, boletos: r.boletos,
+      })),
+    })
+  }
+
+  const rondas = lanzar(
+    await supabase.from('rounds').select('id, numero').eq('season_id', seasonId).eq('estado', 'finalizada')
+  )
+  const ids = rondas.map(r => r.id)
+  if (!ids.length) return { jugadores: [], jornadas: [] }
+
+  const [partidos, boletos, scores, jugadores] = await Promise.all([
+    supabase.from('matches')
+      .select('round_id, orden, signo, modo_puntuacion, exige_resultado, goles_local, goles_visitante, estado')
+      .in('round_id', ids).then(lanzar),
+    supabase.from('bets').select('round_id, player_id, picks, pleno_local, pleno_visitante')
+      .in('round_id', ids).eq('estado', 'confirmada').then(lanzar),
+    supabase.from('round_scores').select('round_id, player_id, aciertos, es_ganador')
+      .in('round_id', ids).then(lanzar),
+    supabase.from('players').select('id, nombre, apodo, avatar_url').then(lanzar),
+  ])
+  const scoreDe = new Map(scores.map(s => [`${s.round_id}:${s.player_id}`, s]))
+
+  return {
+    jugadores: jugadores.map(j => ({ ...j, nombre: nombreVisible(j) })),
+    jornadas: rondas.map(r => ({
+      id: r.id, numero: r.numero,
+      partidos: partidos.filter(m => m.round_id === r.id),
+      boletos: boletos.filter(b => b.round_id === r.id).map(b => ({
+        ...b,
+        aciertos: scoreDe.get(`${r.id}:${b.player_id}`)?.aciertos ?? 0,
+        es_ganador: scoreDe.get(`${r.id}:${b.player_id}`)?.es_ganador ?? false,
+      })),
+    })),
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Jornadas
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ import Bote from './pages/Bote.jsx'
 import Saldos from './pages/Saldos.jsx'
 import Entrar from './pages/Entrar.jsx'
 import Jugar from './pages/Jugar.jsx'
+import Ranking from './pages/Ranking.jsx'
 import { MODO_DEMO } from './lib/supabase.js'
 import { useSesion, salir, establecerPassword } from './lib/sesion.js'
 import { Cargando } from './components/ui.jsx'
@@ -28,6 +29,7 @@ const CrearQuiniela = lazy(() => import('./pages/admin/CrearQuiniela.jsx'))
 const SECCIONES = [
   { a: '/',         txt: 'Portada' },
   { a: '/jugar',    txt: 'Jugar' },
+  { a: '/ranking',  txt: 'Ranking' },
   { a: '/jornadas', txt: 'Jornadas' },
   { a: '/bote',     txt: 'El bote' },
   { a: '/saldos',   txt: 'Caja' },
@@ -110,6 +112,7 @@ export default function App() {
         <Routes>
           <Route path="/"               element={<Clasificacion />} />
           <Route path="/jugar"          element={<Jugar />} />
+          <Route path="/ranking"        element={<Ranking />} />
           <Route path="/jornadas"       element={<Jornadas />} />
           <Route path="/jornada/:id"    element={<Jornada />} />
           <Route path="/bote"           element={<Bote />} />
