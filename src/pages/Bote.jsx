@@ -40,7 +40,7 @@ export default function Bote() {
         <Seccion titulo="Cómo ha ido creciendo" nota="Saldo al cierre de cada jornada">
           <div style={{ width: '100%', height: 250, marginTop: 14 }}>
             <ResponsiveContainer>
-              <AreaChart data={serie} margin={{ top: 8, right: 4, left: -16, bottom: 0 }}>
+              <AreaChart data={serie} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke="var(--regla)" vertical={false} />
                 <XAxis dataKey="jornada" stroke="var(--tinta-3)" fontSize={11} tickLine={false}
                        axisLine={{ stroke: 'var(--regla-fuerte)' }} />

@@ -83,11 +83,11 @@ export default function Evolucion({ jornadas, acumulado, tabla }) {
 
       <div style={{ width: '100%', height: 260, marginTop: 12 }}>
         <ResponsiveContainer>
-          <LineChart data={filas} margin={{ top: 8, right: 12, left: -22, bottom: 0 }}>
+          <LineChart data={filas} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="var(--regla)" vertical={false} />
             <XAxis dataKey="jornada" stroke="var(--tinta-3)" fontSize={11} tickLine={false}
                    axisLine={{ stroke: 'var(--regla-fuerte)' }} />
-            <YAxis stroke="var(--tinta-3)" fontSize={11} tickLine={false} axisLine={false} width={40} />
+            <YAxis stroke="var(--tinta-3)" fontSize={11} tickLine={false} axisLine={false} width={34} />
             <Tooltip
               cursor={{ stroke: 'var(--tinta-3)', strokeDasharray: '3 3' }}
               content={<Marcador nombreDe={nombreDe} destacado={destacado} />}

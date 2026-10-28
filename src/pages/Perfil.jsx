@@ -91,14 +91,17 @@ export default function Perfil() {
         <Seccion titulo="Jornada a jornada" nota="La línea de puntos es tu media">
           <div style={{ width: '100%', height: 230, marginTop: 14 }}>
             <ResponsiveContainer>
-              <BarChart data={serie} margin={{ top: 8, right: 4, left: -22, bottom: 0 }}>
+              <BarChart data={serie} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke="var(--regla)" vertical={false} />
                 <XAxis dataKey="jornada" stroke="var(--tinta-3)" fontSize={11} tickLine={false}
                        axisLine={{ stroke: 'var(--regla-fuerte)' }} />
-                <YAxis domain={[0, 14]} stroke="var(--tinta-3)" fontSize={11} tickLine={false} axisLine={false} width={36} />
+                {/* Sin márgenes negativos: recortaban la primera cifra y el 12 y el 14 se
+                    leían «2» y «4». Hasta 15, que es el máximo con el pleno. */}
+                <YAxis domain={[0, 15]} ticks={[0, 5, 10, 15]} stroke="var(--tinta-3)" fontSize={11} tickLine={false} axisLine={false} width={26} />
                 <Tooltip
                   cursor={{ fill: 'var(--papel-2)' }}
-                  formatter={v => [`${v} aciertos`, '']}
+                  formatter={v => [`${v} aciertos`]}
+                  separator=""
                   contentStyle={{
                     background: 'var(--papel)', border: '1px solid var(--regla-fuerte)',
                     borderRadius: 2, color: 'var(--tinta)', fontFamily: 'var(--mono)', fontSize: 12,
