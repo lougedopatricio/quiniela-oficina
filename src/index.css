@@ -395,8 +395,8 @@ button, .boton {
 }
 button:hover:not(:disabled), .boton:hover { background: var(--tinta); color: var(--papel); }
 button:disabled { opacity: .35; cursor: not-allowed; }
-button.principal { background: var(--rojo); border-color: var(--rojo); color: #fff; }
-button.principal:hover:not(:disabled) { background: var(--tinta); border-color: var(--tinta); }
+button.principal, .boton.principal { background: var(--rojo); border-color: var(--rojo); color: #fff; }
+button.principal:hover:not(:disabled), .boton.principal:hover { background: var(--tinta); border-color: var(--tinta); color: #fff; }
 
 select, input, textarea {
   font: inherit; font-size: 14px; padding: 8px 10px; border-radius: 2px;
@@ -519,3 +519,37 @@ select:focus, input:focus, textarea:focus { outline: 2px solid var(--rojo); outl
 .tabla-ranking td.num { white-space: nowrap; }
 .solo-movil { display: none; }
 @media (max-width: 700px) { .solo-movil { display: grid; } }
+
+/* Portada: bienvenida */
+.bienvenida { margin-top: 44px; padding: 34px 0 10px; border-top: 3px double var(--regla-fuerte); }
+.bienvenida-cabecera { max-width: 720px; }
+.bienvenida-titular { font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 6vw, 58px); line-height: 1.02; margin: 8px 0 14px; letter-spacing: -.01em; }
+.bienvenida-titular em { color: var(--rojo); }
+.funciones { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-top: 26px; }
+.funcion {
+  display: grid; gap: 6px; align-content: start; padding: 16px; border: 1px solid var(--regla);
+  background: var(--papel); color: var(--tinta); text-decoration: none; transition: border-color .15s, transform .15s;
+}
+.funcion:hover { border-color: var(--regla-fuerte); transform: translateY(-2px); }
+.funcion-icono { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--rojo-suave); color: var(--rojo); }
+.funcion-titulo { font-family: var(--serif); font-size: 22px; line-height: 1.1; }
+.funcion-texto { font-size: 13.5px; color: var(--tinta-2); line-height: 1.45; }
+.funcion-ir { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--rojo); margin-top: 4px; }
+.reglas-rapidas { display: grid; gap: 10px; margin-top: 24px; padding: 16px; background: var(--papel-2); font-size: 14px; }
+.reglas-rapidas > div { display: flex; gap: 10px; align-items: flex-start; }
+.reglas-rapidas svg { flex: none; color: var(--oro); margin-top: 1px; }
+.reglas-15 { flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--oro); color: #fff; font-size: 10px; font-weight: 700; display: grid; place-items: center; margin-top: 1px; }
+
+/* Memes: viñetas propias, texto blanco con borde negro como manda el género */
+.memes { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 16px; }
+.meme {
+  margin: 0; aspect-ratio: 1; display: grid; grid-template-rows: auto 1fr auto; align-items: center;
+  background: radial-gradient(circle at 50% 45%, #3a3d33, #15160f); color: #fff; padding: 10px; text-align: center;
+  border: 1px solid var(--regla-fuerte);
+}
+.meme-dibujo { font-size: clamp(56px, 9vw, 84px); line-height: 1; filter: drop-shadow(0 4px 8px rgba(0,0,0,.5)); }
+.meme-texto {
+  font-family: Impact, 'Anton', 'Arial Black', 'Archivo', sans-serif; font-weight: 900; text-transform: uppercase;
+  font-size: 17px; line-height: 1.1; letter-spacing: .02em;
+  text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 2px 0 #000, 2px 0 0 #000, 0 -2px 0 #000, -2px 0 0 #000;
+}

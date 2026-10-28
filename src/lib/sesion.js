@@ -51,7 +51,7 @@ export function useSesion() {
       // propio correo de quien ha entrado ya está en `user.email`.
       const { data } = await supabase
         .from('players')
-        .select('id, user_id, nombre, alias, avatar_url, is_admin, is_owner, activo')
+        .select('id, user_id, nombre, alias, apodo, avatar_url, is_admin, is_owner, activo')
         .eq('user_id', user.id)
         .maybeSingle()
       // El dueño manda sobre el administrador, así que también lo es. Igual

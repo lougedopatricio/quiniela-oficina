@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from 'react'
 import { Routes, Route, NavLink, Navigate, useLocation } from 'react-router-dom'
-import Clasificacion from './pages/Clasificacion.jsx'
+import Inicio from './pages/Inicio.jsx'
 import Jornadas from './pages/Jornadas.jsx'
 import Jornada from './pages/Jornada.jsx'
 import Perfil from './pages/Perfil.jsx'
@@ -110,7 +110,7 @@ export default function App() {
         )}
 
         <Routes>
-          <Route path="/"               element={<Clasificacion />} />
+          <Route path="/"               element={<Inicio />} />
           <Route path="/jugar"          element={<Jugar />} />
           <Route path="/ranking"        element={<Ranking />} />
           <Route path="/jornadas"       element={<Jornadas />} />
