@@ -12,6 +12,7 @@ import CambiarFoto from '../../components/CambiarFoto.jsx'
 import { fechaCorta, fechaHora, haceCuanto, nombreVisible } from '../../lib/formato.js'
 import { useSesion } from '../../lib/sesion.js'
 import { MODO_DEMO } from '../../lib/supabase.js'
+import { avisarCuentasCambiadas } from '../../lib/avisos.js'
 
 const VACIO = { nombre: '', apodo: '', alias: '', email: '', alternativos: '' }
 
@@ -115,6 +116,7 @@ export default function Participantes() {
       })
       setAviso({ tipo: 'ok', txt: `${nombre.trim()} ya es participante, con su cuenta enlazada.` })
       refrescar()
+      avisarCuentasCambiadas()
     } catch (err) { fallo(err) }
   }
 
@@ -124,6 +126,7 @@ export default function Participantes() {
       await vincularCuenta(playerId, cuenta.user_id)
       setAviso({ tipo: 'ok', txt: `${cuenta.email} enlazado con ${p?.nombre ?? 'el participante'}.` })
       refrescar()
+      avisarCuentasCambiadas()
     } catch (err) { fallo(err) }
   }
 

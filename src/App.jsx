@@ -12,6 +12,7 @@ import Ranking from './pages/Ranking.jsx'
 import { MODO_DEMO } from './lib/supabase.js'
 import { useSesion, salir, establecerPassword } from './lib/sesion.js'
 import { Cargando } from './components/ui.jsx'
+import { useCuentasSinFicha } from './lib/avisos.js'
 
 // Toda la trastienda se carga aparte. El importador arrastra SheetJS, que pesa
 // más que el resto de la app junta, y el panel entero solo lo abre el
@@ -54,6 +55,9 @@ export default function App() {
   // tokens, el mismo sitio que HashRouter usa para las rutas, y forzar una
   // convivencia entre los dos es más frágil que evitarla del todo.
   const { pathname } = useLocation()
+  // Quien ha entrado y no tiene ficha no juega hasta que el administrador lo
+  // asigne: se le avisa en todas las páginas hasta que no quede ninguno.
+  const sinFicha = useCuentasSinFicha(verAdmin && !sesion.cargando, pathname)
 
   if (sesion.recuperando) return <PantallaRecuperacion />
 
@@ -96,12 +100,23 @@ export default function App() {
           {verAdmin && (
             <NavLink to="/admin" className={({ isActive }) => (isActive ? 'activo' : '')}>
               Redacción
+              {sinFicha.length > 0 && <span className="contador-aviso" title="Cuentas sin participante">{sinFicha.length}</span>}
             </NavLink>
           )}
         </div>
       </nav>
 
       <main className="contenido">
+        {verAdmin && sinFicha.length > 0 && pathname !== '/admin/participantes' && (
+          <div className="aviso aviso-admin" role="status">
+            <span>
+              <strong>{sinFicha.length === 1 ? 'Alguien nuevo ha entrado' : `${sinFicha.length} cuentas nuevas han entrado`}</strong>
+              {' '}sin ficha de participante: {sinFicha.slice(0, 3).map(c => c.email).join(', ')}
+              {sinFicha.length > 3 ? ` y ${sinFicha.length - 3} más` : ''}. No juega{sinFicha.length === 1 ? '' : 'n'} hasta que lo{sinFicha.length === 1 ? '' : 's'} asignes.
+            </span>
+            <NavLink to="/admin/participantes" className="boton principal">Asignar</NavLink>
+          </div>
+        )}
         {MODO_DEMO && (
           <div className="aviso" style={{ marginBottom: 24 }}>
             <strong>Edición de muestra.</strong> Los nombres y los resultados son inventados,

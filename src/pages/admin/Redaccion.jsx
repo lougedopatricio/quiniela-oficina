@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { useCuentasSinFicha } from '../../lib/avisos.js'
 
 const APARTADOS = [
   { a: '/admin/participantes', txt: 'Participantes' },
@@ -17,6 +18,8 @@ const APARTADOS = [
  * arriba creciera hasta ser inmanejable en el móvil.
  */
 export default function Redaccion() {
+  const { pathname } = useLocation()
+  const sinFicha = useCuentasSinFicha(true, pathname)
   return (
     <>
       <nav style={{
@@ -34,6 +37,9 @@ export default function Redaccion() {
                      marginBottom: -1,
                    })}>
             {s.txt}
+            {s.a === '/admin/participantes' && sinFicha.length > 0 && (
+              <span className="contador-aviso" title="Cuentas sin participante">{sinFicha.length}</span>
+            )}
           </NavLink>
         ))}
       </nav>
