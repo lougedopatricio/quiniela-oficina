@@ -184,6 +184,17 @@ El importador **no escribe nada hasta que confirmas**: enseña cada fila con sus
 problemas señalados (nombre que no cuadra, signo inválido, columna incompleta,
 persona repetida) y solo importa las correctas.
 
+Para **corregir una jornada**, aunque ya esté liquidada, se vuelve a subir su
+Excel: cada persona tiene un solo boleto por jornada, así que no se duplica
+nada. La previsualización dice qué boletos son nuevos, cuáles cambian (y en qué
+partidos) y cuáles se quedan igual; los que venían de un Excel anterior y ya no
+están se pueden quitar marcando una casilla. Al terminar, la jornada se
+recalcula sola.
+
+Quien sale en el Excel y no está dado de alta se crea desde ahí mismo: con el
+dominio del correo (su cuenta se enlazará sola cuando entre) o sin correo
+(juega igual, y el correo se le pone luego en Participantes).
+
 ---
 
 ## Tests

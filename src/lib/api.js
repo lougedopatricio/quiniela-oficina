@@ -838,11 +838,14 @@ export async function recalcularJornada(roundId) {
 export async function getBoletosDeJornada(roundId) {
   if (MODO_DEMO) {
     const r = DEMO.rounds.find(x => x.id === roundId)
-    return ok(r?.boletos ?? [])
+    const porId = Object.fromEntries(DEMO.jugadores.map(j => [j.id, j]))
+    return ok((r?.boletos ?? []).map(b => ({
+      ...b, id: `${r.id}-${b.player_id}`, origen: 'excel', players: porId[b.player_id],
+    })))
   }
   return lanzar(
     await supabase.from('bets')
-      .select('id, player_id, picks, pleno_local, pleno_visitante, estado, origen, players(nombre, alias)')
+      .select('id, player_id, picks, pleno_local, pleno_visitante, estado, origen, players(nombre, alias, apodo)')
       .eq('round_id', roundId)
   )
 }
@@ -1034,15 +1037,17 @@ export async function volcarPartidosDelExcel(roundId, partidos) {
  *
  * El Excel identifica a cada uno por el usuario de su correo, así que con el
  * dominio se reconstruye el correo entero: su cuenta se enlaza sola el día
- * que entre (0012). El nombre provisional es ese mismo usuario; para que no
- * salga así en la clasificación, se le pone un apodo después.
+ * que entre (0012). Sin dominio se dan de alta sin correo: juegan igual y el
+ * correo se les puede poner luego en Participantes (y entonces se enlazan
+ * solos si ya tenían cuenta). El nombre provisional es ese mismo usuario;
+ * para que no salga así en la clasificación, se le pone un apodo después.
  */
-export async function altaDesdeExcel(usuarios, dominio) {
+export async function altaDesdeExcel(usuarios, dominio = null) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
   const dom = String(dominio ?? '').trim().replace(/^@/, '')
-  if (!/^[^\s@]+\.[^\s@]+$/.test(dom)) throw new Error('Escribe el dominio del correo, por ejemplo empresa.com')
+  if (dom && !/^[^\s@]+\.[^\s@]+$/.test(dom)) throw new Error('Ese dominio no parece válido. Escribe algo como empresa.com, o déjalo vacío para darlos de alta sin correo.')
   const { error } = await supabase.from('players').insert(
-    usuarios.map(u => ({ nombre: u, alias: u, email: `${u}@${dom}` }))
+    usuarios.map(u => ({ nombre: u, alias: u, email: dom ? `${u}@${dom}` : null }))
   )
   if (error) {
     throw new Error(error.code === '23505'
@@ -1051,7 +1056,7 @@ export async function altaDesdeExcel(usuarios, dominio) {
   }
 }
 
-export async function importarBoletos(roundId, filas, { marcarPagado = false, partidos = null } = {}) {
+export async function importarBoletos(roundId, filas, { marcarPagado = false, partidos = null, quitar = [] } = {}) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
 
   // Primero los partidos: el trigger de 0017 comprueba la columna contra
@@ -1099,6 +1104,21 @@ export async function importarBoletos(roundId, filas, { marcarPagado = false, pa
         if (eLedger) throw new Error(eLedger.message)
       }
     }
+  }
+
+  // Al corregir: los boletos que venían de un Excel anterior y en el nuevo ya
+  // no están. Se va su cuota sola (0015), y también el pago en mano que
+  // apuntó aquella importación, que era la otra mitad del mismo apunte. Los
+  // pagos anotados a mano en la Caja no se tocan.
+  if (quitar.length) {
+    const { error: eBorrar } = await supabase.from('bets').delete()
+      .eq('round_id', roundId).in('id', quitar.map(b => b.id))
+    if (eBorrar) throw new Error(eBorrar.message)
+    const { error: ePagos } = await supabase.from('ledger').delete()
+      .eq('round_id', roundId).eq('tipo', 'pago')
+      .in('player_id', quitar.map(b => b.player_id))
+      .like('nota', 'Pago en mano · jornada%')
+    if (ePagos) throw new Error(ePagos.message)
   }
 
   // La liquidación no se hace aquí: se pide a la base, que es la autoridad.

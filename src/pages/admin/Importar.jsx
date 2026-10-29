@@ -1,11 +1,23 @@
 import { useState } from 'react'
 import { Upload, Download, Check, AlertTriangle, UserPlus } from 'lucide-react'
-import { getTemporada, getJornadas, getParticipantes, importarBoletos, altaDesdeExcel } from '../../lib/api.js'
+import { getTemporada, getJornadas, getParticipantes, importarBoletos, altaDesdeExcel, getBoletosDeJornada } from '../../lib/api.js'
 import { leerBoletos, plantillaBoletos } from '../../lib/excel.js'
 import { liquidar, puntuar } from '../../lib/reglas.js'
 import { MODO_DEMO } from '../../lib/supabase.js'
 import { useAsync, Cargando, AvisoError, Portada, CifraMenor, Seccion, Vacio } from '../../components/ui.jsx'
-import { euros } from '../../lib/formato.js'
+import { euros, nombreVisible } from '../../lib/formato.js'
+
+// Qué le pasa a cada columna del Excel frente a lo que la jornada ya tiene.
+// Se compara signo a signo: lo que no cambia se queda igual al importar.
+function compararConExistente(fila, existente) {
+  if (!existente) return { tipo: 'nueva' }
+  const largo = Math.max(fila.picks.length, existente.picks?.length ?? 0)
+  const cambian = []
+  for (let i = 0; i < largo; i++) {
+    if ((fila.picks[i] ?? '-') !== (existente.picks?.[i] ?? '-')) cambian.push(i === 14 ? 'P15' : i + 1)
+  }
+  return cambian.length ? { tipo: 'cambia', cambian } : { tipo: 'igual' }
+}
 
 export default function Importar() {
   const [roundId, setRoundId] = useState('')
@@ -19,6 +31,9 @@ export default function Importar() {
   const [archivo, setArchivo] = useState(null)
   const [dominio, setDominio] = useState('')
   const [recarga, setRecarga] = useState(0)
+  // Corregir: quitar los boletos que vinieron de un Excel anterior y en este
+  // ya no están. Desactivado por defecto: borrar siempre se pide a propósito.
+  const [quitarSobrantes, setQuitarSobrantes] = useState(false)
 
   // Participantes y no jugadores a secas: hace falta el correo, porque el
   // Excel de la oficina identifica a cada uno por su usuario de correo.
@@ -29,12 +44,22 @@ export default function Importar() {
     return { season, jornadas, jugadores }
   }, [recarga])
 
+  // Lo que la jornada elegida ya tiene, para poder decir qué es nuevo, qué
+  // cambia y qué sobra. Se vuelve a leer tras importar.
+  const existentes = useAsync(
+    () => (roundId ? getBoletosDeJornada(roundId) : Promise.resolve([])),
+    [roundId, recarga]
+  )
+
   if (cargando && !datos) return <Cargando filas={4} />
   if (error) return <AvisoError error={error} />
   if (!datos) return <Vacio>No hay temporada abierta.</Vacio>
 
   const { season, jornadas, jugadores } = datos
-  const importables = jornadas.filter(j => j.estado !== 'finalizada')
+  // También las liquidadas: corregir una es volver a subir su Excel, y la
+  // base la recalcula al terminar.
+  const importables = jornadas
+  const jornadaElegida = jornadas.find(j => j.round_id === roundId)
 
   async function alElegirArchivo(e) {
     const f = e.target.files?.[0]
@@ -57,14 +82,25 @@ export default function Importar() {
   const resultados = oficina ? analisis.partidos.map(p => p.resultado) : null
   const conResultados = resultados?.some(Boolean)
 
-  async function darDeAlta() {
+  const existentesPorJugador = new Map((existentes.datos ?? []).map(b => [b.player_id, b]))
+  const comparacion = (f) => (f.jugador ? compararConExistente(f, existentesPorJugador.get(f.jugador.id)) : null)
+  const enElExcel = new Set(validas.map(f => f.jugador.id))
+  const sobrantes = (existentes.datos ?? []).filter(b => !enElExcel.has(b.player_id))
+  // Solo se ofrece quitar lo que vino de un Excel: una columna echada desde
+  // «Jugar» o metida a mano en «Boletos» no tiene por qué estar en el Excel.
+  const sobrantesExcel = sobrantes.filter(b => b.origen === 'excel')
+  const sobrantesOtros = sobrantes.filter(b => b.origen !== 'excel')
+  const cuentas = validas.reduce((a, f) => { const c = comparacion(f); a[c?.tipo ?? 'nueva']++; return a },
+    { nueva: 0, cambia: 0, igual: 0 })
+
+  async function darDeAlta(conCorreo = true) {
     setEstado({ tipo: 'trabajando', txt: 'Dando de alta…' })
     try {
-      await altaDesdeExcel(sinAlta.map(f => f.nombre), dominio)
+      await altaDesdeExcel(sinAlta.map(f => f.nombre), conCorreo ? dominio : null)
       const lista = await getParticipantes()
       setAnalisis(leerBoletos(archivo, lista))
       setRecarga(n => n + 1)
-      setEstado({ tipo: 'ok', txt: `${sinAlta.length} participante${sinAlta.length === 1 ? '' : 's'} dado${sinAlta.length === 1 ? '' : 's'} de alta. Ponles un apodo en Participantes para que no salgan con el usuario del correo.` })
+      setEstado({ tipo: 'ok', txt: `${sinAlta.length} participante${sinAlta.length === 1 ? '' : 's'} dado${sinAlta.length === 1 ? '' : 's'} de alta${conCorreo ? '' : ' sin correo (se lo puedes poner luego en Participantes)'}. Ponles un apodo para que no salgan con el usuario del correo.` })
     } catch (err) {
       setEstado({ tipo: 'error', txt: err.message })
     }
@@ -79,23 +115,35 @@ export default function Importar() {
   async function importar() {
     setEstado({ tipo: 'trabajando', txt: 'Importando…' })
     try {
+      // Sin ningún boleto válido no se quita nada: un Excel que no casa con
+      // nadie vaciaría la jornada entera.
+      const quitar = quitarSobrantes && validas.length ? sobrantesExcel.map(b => ({ id: b.id, player_id: b.player_id })) : []
+      if (quitar.length && !confirm(`Se van a quitar ${quitar.length} boleto(s) de esta jornada: ${sobrantesExcel.map(b => nombreVisible(b.players)).join(', ')}. ¿Seguir?`)) {
+        setEstado(null)
+        return
+      }
       const res = await importarBoletos(roundId, validas, {
         marcarPagado,
         partidos: oficina && conPartidos ? analisis.partidos : null,
+        quitar,
       })
       const conPago = marcarPagado ? ` y ${validas.length} pago${validas.length === 1 ? '' : 's'} anotado${validas.length === 1 ? '' : 's'}` : ''
       const v = res?.volcado
       const conPartidosTxt = v && (v.creados || v.conResultado)
         ? ` Del Excel: ${v.creados} partido${v.creados === 1 ? '' : 's'} nuevo${v.creados === 1 ? '' : 's'} y ${v.conResultado} resultado${v.conResultado === 1 ? '' : 's'}.`
         : ''
+      const resumen = `${cuentas.nueva} nuevo${cuentas.nueva === 1 ? '' : 's'}, ${cuentas.cambia} corregido${cuentas.cambia === 1 ? '' : 's'}, ${cuentas.igual} igual${cuentas.igual === 1 ? '' : 'es'}` +
+        (quitar.length ? ` y ${quitar.length} quitado${quitar.length === 1 ? '' : 's'}` : '')
       setEstado({
         tipo: 'ok',
         txt: (res?.liquidada
-          ? `${validas.length} boletos importados${conPago}. Jornada liquidada: ${res.ganadores} ganador(es) con ${res.max_aciertos} aciertos.`
-          : `${validas.length} boletos importados${conPago}. La jornada se liquidará sola cuando estén todos los resultados.`)
+          ? `Boletos: ${resumen}${conPago}. Jornada liquidada: ${res.ganadores} ganador(es) con ${res.max_aciertos} aciertos.`
+          : `Boletos: ${resumen}${conPago}. La jornada se liquidará sola cuando estén todos los resultados.`)
           + conPartidosTxt,
       })
       setAnalisis(null)
+      setQuitarSobrantes(false)
+      setRecarga(n => n + 1)
     } catch (err) {
       setEstado({ tipo: 'error', txt: err.message })
     }
@@ -131,7 +179,9 @@ export default function Importar() {
             <select value={roundId} onChange={e => setRoundId(e.target.value)}>
               <option value="">Elige una…</option>
               {importables.map(j => (
-                <option key={j.round_id} value={j.round_id}>Jornada {j.numero} · {j.estado}</option>
+                <option key={j.round_id} value={j.round_id}>
+                  Jornada {j.numero} · {j.estado}{j.boletos ? ` · ${j.boletos} boletos` : ''}{j.estado === 'finalizada' ? ' (corregir)' : ''}
+                </option>
               ))}
             </select>
           </label>
@@ -192,9 +242,14 @@ export default function Importar() {
                 <input value={dominio} placeholder="empresa.com" onChange={e => setDominio(e.target.value)}
                        style={{ width: 200 }} />
                 <button className="principal" disabled={MODO_DEMO || !dominio.trim() || estado?.tipo === 'trabajando'}
-                        onClick={darDeAlta}>
+                        onClick={() => darDeAlta(true)}>
                   <UserPlus size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
                   Dar de alta a los {sinAlta.length}
+                </button>
+                <button disabled={MODO_DEMO || estado?.tipo === 'trabajando'}
+                        onClick={() => darDeAlta(false)}
+                        title="Juegan igual. Sin correo su cuenta no se enlaza sola: se lo puedes poner luego en Participantes.">
+                  Dar de alta sin correo
                 </button>
               </div>
             </Seccion>
@@ -220,6 +275,39 @@ export default function Importar() {
             </Seccion>
           )}
 
+          {roundId && existentes.datos && (existentes.datos.length > 0 || validas.length > 0) && (
+            <Seccion titulo={existentes.datos.length ? 'Corregir la jornada' : 'Jornada nueva'}
+                     nota={jornadaElegida ? `Jornada ${jornadaElegida.numero} · ya tiene ${existentes.datos.length} boleto${existentes.datos.length === 1 ? '' : 's'}` : undefined}
+                     entradilla="Volver a subir el Excel no duplica nada: cada persona tiene un solo boleto por jornada, y el nuevo sustituye al que hubiera. Después la jornada se recalcula sola, también si ya estaba liquidada.">
+              <div className="cifras-menores" style={{ marginTop: 10 }}>
+                <CifraMenor rotulo="Nuevos" valor={cuentas.nueva} />
+                <CifraMenor rotulo="Se corrigen" valor={cuentas.cambia} tono={cuentas.cambia ? 'var(--oro)' : undefined} />
+                <CifraMenor rotulo="Se quedan igual" valor={cuentas.igual} />
+                <CifraMenor rotulo="No están en el Excel" valor={sobrantes.length} tono={sobrantes.length ? 'var(--rojo)' : undefined} />
+              </div>
+              {sobrantes.length > 0 && (
+                <div style={{ display: 'grid', gap: 8, padding: '10px 0' }}>
+                  <div style={{ fontSize: 13, color: 'var(--tinta-2)' }}>
+                    Ya tienen boleto en esta jornada pero no aparecen en este Excel:{' '}
+                    <b>{sobrantes.map(b => nombreVisible(b.players) + (b.origen !== 'excel' ? ` (${b.origen === 'web' ? 'jugó desde la web' : 'metido a mano'})` : '')).join(', ')}</b>.
+                  </div>
+                  {sobrantesExcel.length > 0 && validas.length > 0 && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5 }}>
+                      <input type="checkbox" checked={quitarSobrantes} onChange={e => setQuitarSobrantes(e.target.checked)}
+                             style={{ width: 16, height: 16 }} />
+                      Quitar de la jornada {sobrantesExcel.length === 1 ? 'el boleto' : `los ${sobrantesExcel.length} boletos`} que venía{sobrantesExcel.length === 1 ? '' : 'n'} de un Excel anterior (y su pago en mano)
+                    </label>
+                  )}
+                  {sobrantesOtros.length > 0 && (
+                    <div style={{ fontSize: 12.5, color: 'var(--tinta-3)' }}>
+                      Los que jugaron desde la web o se metieron a mano no se tocan: si hay que quitarlos, se hace en Boletos.
+                    </div>
+                  )}
+                </div>
+              )}
+            </Seccion>
+          )}
+
           {previo && (
             <Seccion titulo="Lo que va a pasar con el dinero">
               <div className="cifras-menores">
@@ -237,7 +325,9 @@ export default function Importar() {
               <button className="principal"
                       disabled={MODO_DEMO || !roundId || validas.length === 0 || estado?.tipo === 'trabajando'}
                       onClick={importar}>
-                Importar {validas.length} boleto{validas.length === 1 ? '' : 's'}
+                {existentes.datos?.length
+                  ? `Corregir la jornada (${validas.length} boleto${validas.length === 1 ? '' : 's'})`
+                  : `Importar ${validas.length} boleto${validas.length === 1 ? '' : 's'}`}
               </button>
             }
             entradilla="Corrige el Excel y vuelve a subirlo si algo no cuadra. Reimportar sustituye las columnas, no las duplica."
@@ -249,7 +339,8 @@ export default function Importar() {
                     <th style={{ width: 40 }}>{oficina ? 'Col.' : 'Fila'}</th>
                     <th>Nombre</th>
                     <th>Columna</th>
-                    {conResultados && <th className="num">Aciertos</th>}
+                    {conResultados && <th className="num" style={{ paddingRight: 16 }}>Aciertos</th>}
+                    {roundId && <th>En la jornada</th>}
                     <th>Estado</th>
                   </tr>
                 </thead>
@@ -274,7 +365,23 @@ export default function Importar() {
                           })}
                         </div>
                       </td>
-                      {conResultados && <td className="num destaca">{puntuar(f.picks, resultados)}</td>}
+                      {conResultados && <td className="num destaca" style={{ paddingRight: 16 }}>{puntuar(f.picks, resultados)}</td>}
+                      {roundId && (() => {
+                        const c = comparacion(f)
+                        if (!c) return <td style={{ color: 'var(--tinta-3)', fontSize: 12.5 }}>—</td>
+                        return (
+                          <td style={{ fontSize: 12.5 }}>
+                            {c.tipo === 'nueva' && <span className="etiqueta ok">Nuevo</span>}
+                            {c.tipo === 'igual' && <span style={{ color: 'var(--tinta-3)' }}>Igual</span>}
+                            {c.tipo === 'cambia' && (
+                              <span title={`Cambian: ${c.cambian.join(', ')}`}>
+                                <span className="etiqueta oro">Se corrige</span>
+                                <span style={{ color: 'var(--tinta-3)', marginLeft: 6 }}>partidos {c.cambian.join(', ')}</span>
+                              </span>
+                            )}
+                          </td>
+                        )
+                      })()}
                       <td style={{ color: f.valida ? 'var(--verde)' : 'var(--rojo)', fontSize: 13 }}>
                         {f.valida ? 'Correcta' : f.problemas.join(' · ')}
                       </td>
