@@ -162,17 +162,22 @@ function MemeDeLaJornada({ season, puedeCambiarlo }) {
   const [enlace, setEnlace] = useState('')
   const [aviso, setAviso] = useState(null)
   const [editando, setEditando] = useState(false)
+  const [corto, setCorto] = useState(null)
 
   if (!id && !puedeCambiarlo) return null
 
   async function guardar(e) {
     e.preventDefault()
     setAviso('Buscando el vídeo…')
+    setCorto(null)
     try {
       const nuevo = enlace.trim() ? await numeroDeTiktok(enlace) : null
       await ponerMemeDeLaJornada(season.id, nuevo)
       setId(nuevo); setEnlace(''); setEditando(false); setAviso(null)
-    } catch (err) { setAviso(err.message) }
+    } catch (err) {
+      setAviso(err.message)
+      setCorto(err.enlaceCorto ?? null)
+    }
   }
 
   return (
@@ -198,8 +203,8 @@ function MemeDeLaJornada({ season, puedeCambiarlo }) {
       )}
       {puedeCambiarlo && (editando || !id ? (
         <form onSubmit={guardar} style={{ display: 'grid', gap: 6, marginTop: 10 }}>
-          <input value={enlace} onChange={e => setEnlace(e.target.value)}
-                 placeholder="https://www.tiktok.com/@…/video/…" />
+          <textarea value={enlace} onChange={e => setEnlace(e.target.value)} rows={2}
+                    placeholder="https://www.tiktok.com/@…/video/…" style={{ resize: 'vertical', fontSize: 13 }} />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <button className="principal" type="submit" style={{ padding: '5px 11px' }}
                     disabled={!enlace.trim() && !id}>
@@ -208,7 +213,7 @@ function MemeDeLaJornada({ season, puedeCambiarlo }) {
             {id && <button type="button" onClick={() => { setEditando(false); setAviso(null) }} style={{ padding: '5px 11px' }}>Cancelar</button>}
           </div>
           <span style={{ fontSize: 11.5, color: 'var(--tinta-3)' }}>
-            Vale el enlace de «Compartir» o la dirección completa del vídeo. Solo lo ves tú, que eres administrador.
+            Pega la dirección completa del vídeo (la que lleva /video/ y un número) o su código de «Insertar». Solo lo ves tú, que eres administrador.
           </span>
         </form>
       ) : (
@@ -216,7 +221,18 @@ function MemeDeLaJornada({ season, puedeCambiarlo }) {
           Cambiar el meme
         </button>
       ))}
-      {aviso && <div className="aviso" style={{ marginTop: 8, fontSize: 12.5 }}>{aviso}</div>}
+      {aviso && (
+        <div className="aviso" style={{ marginTop: 8, fontSize: 12.5 }}>
+          {aviso}
+          {corto && (
+            <div style={{ marginTop: 8 }}>
+              <a href={corto} target="_blank" rel="noreferrer" className="boton" style={{ fontSize: 12, padding: '4px 10px' }}>
+                Abrir en TikTok ↗
+              </a>
+            </div>
+          )}
+        </div>
+      )}
     </aside>
   )
 }

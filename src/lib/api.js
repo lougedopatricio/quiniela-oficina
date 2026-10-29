@@ -8,7 +8,7 @@ import { DEMO, jugadorDemo } from './demo.js'
 import { acumularAciertos } from './evolucion.js'
 import { puestoEn } from './puestos.js'
 import { nombreVisible } from './formato.js'
-import { numeroEnEnlace, esEnlaceCortoDeTiktok } from './tiktok.js'
+import { numeroEnEnlace, esEnlaceCortoDeTiktok, AYUDA_ENLACE_CORTO } from './tiktok.js'
 // Puro JS sin nada de Node, así que se puede importar tal cual en el
 // navegador: es el mismo parser que usa scripts/sync-lae.mjs, para no tener
 // dos versiones de "qué significa este JSON de LAE" que puedan divergir.
@@ -216,7 +216,9 @@ export async function numeroDeTiktok(enlace) {
         String(j.html ?? '').match(/data-video-id="(\d{8,25})"/)?.[1]
       if (n) return n
     } catch { /* lo de abajo */ }
-    throw new Error('No he podido leer ese enlace corto. Ábrelo en el navegador y pega la dirección completa que sale arriba (la que lleva /video/ y un número).')
+    const e = new Error(AYUDA_ENLACE_CORTO)
+    e.enlaceCorto = esEnlaceCortoDeTiktok(t) ? t : null
+    throw e
   }
   throw new Error('Eso no parece un enlace de TikTok.')
 }
