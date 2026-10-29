@@ -14,7 +14,9 @@ export function numeroEnEnlace(enlace) {
   return m ? m[1] : null
 }
 
-export const esEnlaceCortoDeTiktok = (enlace) => /^https?:\/\/(vm|vt)\.tiktok\.com\//.test(String(enlace ?? '').trim())
+// Los dos formatos de enlace corto: vm.tiktok.com/… (o vt.) y tiktok.com/t/…
+export const esEnlaceCortoDeTiktok = (enlace) =>
+  /^https?:\/\/((vm|vt)\.tiktok\.com\/|(www\.)?tiktok\.com\/t\/)/.test(String(enlace ?? '').trim())
 
 // Lo que se enseña cuando se pega un enlace corto: qué hacer para conseguir
 // uno que sí lleve el número.

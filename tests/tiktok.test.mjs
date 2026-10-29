@@ -20,5 +20,8 @@ test('vale el código de «Insertar» de TikTok', () => {
 test('el enlace corto no lleva el número, y otras webs no valen', () => {
   assert.equal(numeroEnEnlace('https://vm.tiktok.com/ZN8UrfAkG/'), null)
   assert.ok(esEnlaceCortoDeTiktok('https://vm.tiktok.com/ZN8UrfAkG/'))
+  assert.ok(esEnlaceCortoDeTiktok('https://www.tiktok.com/t/ZG9yPfLBfTEH3-TrxoU/'), 'el /t/ también es corto')
+  assert.equal(numeroEnEnlace('https://www.tiktok.com/t/ZG9yPfLBfTEH3-TrxoU/'), null)
+  assert.ok(!esEnlaceCortoDeTiktok('https://www.tiktok.com/@laquiniela/video/7431234567890123456'))
   assert.equal(numeroEnEnlace('hola'), null)
 })
