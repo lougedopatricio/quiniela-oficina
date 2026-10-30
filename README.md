@@ -128,6 +128,26 @@ values ('Tu Nombre', 'tualias', 'tu@empresa.com', true);
    los suyos desde *Mi expediente*. Las fotos van al bucket `avatares` de
    Supabase Storage, que crea la migración `0016`.
 
+### 1 bis · El correo de los enlaces de acceso
+
+El correo que trae Supabase de serie es solo para pruebas: deja mandar **muy
+pocos por hora para todo el proyecto** (2-4). En cuanto entran unos cuantos a
+la vez salta «demasiados enlaces» (*email rate limit exceeded*). Para una
+oficina hace falta un correo propio:
+
+1. Crea una cuenta gratuita en un servicio de envío (Resend, Brevo, SendGrid…)
+   y saca sus datos SMTP.
+2. En Supabase: **Authentication → Emails → SMTP Settings**, activa *Custom
+   SMTP* y rellénalos.
+3. En **Authentication → Rate Limits**, sube el límite de correos por hora.
+4. En **Authentication → URL Configuration**, pon la dirección de la web como
+   *Site URL* y añádela (terminada en `**`) a *Redirect URLs*.
+
+Mientras tanto, quien se registre con contraseña solo gasta un correo (el de
+confirmar), y luego entra con ella sin gastar más. **No desactives la
+confirmación del correo**: las cuentas se enlazan con su ficha por correo, y
+sin confirmar cualquiera podría registrarse con el de un compañero.
+
 ### 2 · Variables
 
 En **Settings → Secrets and variables → Actions** del repo de GitHub:

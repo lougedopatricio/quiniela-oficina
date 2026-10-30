@@ -12,6 +12,24 @@ import { supabase, MODO_DEMO } from './supabase.js'
  * antes, no habría sesión— y con replaceState, para no dejar el enlace de
  * recuperación en el historial del navegador.
  */
+/**
+ * Si se llega desde un enlace del correo que ya no vale (caducado, usado ya
+ * —los antivirus del correo de empresa a veces lo abren antes que la
+ * persona—), Supabase lo dice en el fragmento de la URL. Se lee antes de
+ * limpiarlo para poder contarlo en vez de dejar a la persona sin entrar y
+ * sin saber por qué.
+ */
+function errorDelEnlace() {
+  const h = window.location.hash
+  if (!/[#&]error(_code|_description)?=/.test(h)) return null
+  const p = new URLSearchParams(h.replace(/^#\/?/, '').replace(/^.*?(error)/, '$1'))
+  const codigo = p.get('error_code') ?? ''
+  if (/otp_expired|expired/i.test(codigo + (p.get('error_description') ?? ''))) {
+    return 'Ese enlace ya no vale: caduca a la hora y solo se puede usar una vez (y a veces el antivirus del correo de la empresa lo abre antes que tú). Pide otro y ábrelo en cuanto llegue, o regístrate con contraseña.'
+  }
+  return `No se ha podido entrar con ese enlace (${(p.get('error_description') ?? codigo).replace(/\+/g, ' ')}). Pide otro.`
+}
+
 function limpiarFragmentoDeAuth() {
   if (!/[#&](access_token|refresh_token|type=recovery|error_description)=/.test(window.location.hash)) {
     return false
@@ -35,6 +53,7 @@ function limpiarFragmentoDeAuth() {
 export function useSesion() {
   const [estado, setEstado] = useState({
     cargando: !MODO_DEMO, user: null, jugador: null, esAdmin: false, esDuenyo: false, recuperando: false,
+    errorEnlace: MODO_DEMO ? null : errorDelEnlace(),
   })
 
   useEffect(() => {
@@ -97,6 +116,26 @@ export function useSesion() {
   return estado
 }
 
+/**
+ * Los errores de envío de correo de Supabase, en castellano y con qué hacer.
+ *
+ * El correo que trae Supabase de serie es para pruebas: deja mandar muy
+ * pocos por hora para TODO el proyecto (2-4), y la misma dirección no puede
+ * pedir otro hasta pasado un minuto. Si se avisa a toda la oficina a la vez,
+ * esto salta en cuanto entran unos pocos. Se arregla configurando un correo
+ * propio (SMTP) en Supabase; ver README.
+ */
+export function errorDeCorreo(error) {
+  const m = String(error?.message ?? '')
+  if (/rate limit/i.test(m) || error?.status === 429) {
+    return 'Ahora mismo se han enviado demasiados enlaces y el correo está en pausa. Si ya te pusiste contraseña, entra con ella; si no, vuelve a probar dentro de un rato (hasta una hora).'
+  }
+  if (/for security purposes|after \d+ seconds/i.test(m)) {
+    return 'Acabas de pedir un enlace: espera un minuto antes de pedir otro y mira también en la carpeta de spam.'
+  }
+  return m
+}
+
 /** Magic link: sin contraseñas que gestionar ni que se puedan filtrar. */
 export async function enviarEnlace(email) {
   if (MODO_DEMO) throw new Error('En modo demo no hay login.')
@@ -104,7 +143,39 @@ export async function enviarEnlace(email) {
     email,
     options: { emailRedirectTo: window.location.origin + window.location.pathname },
   })
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(errorDeCorreo(error))
+}
+
+/**
+ * Registrarse con correo y contraseña, sin depender del enlace para entrar.
+ *
+ * Supabase pide confirmar el correo la primera vez (un único correo): es lo
+ * que impide que alguien se registre con el correo de un compañero y se
+ * quede con su ficha, que se enlaza por correo (0008/0012). Confirmado, se
+ * entra con la contraseña sin gastar más correos.
+ *
+ * @returns 'dentro' si ya ha entrado (confirmación desactivada en Supabase),
+ *          'confirmar' si tiene que abrir el correo, 'existe' si ese correo ya
+ *          tenía cuenta.
+ */
+export async function registrarse(email, password) {
+  if (MODO_DEMO) throw new Error('En modo demo no hay login.')
+  const { data, error } = await supabase.auth.signUp({
+    email, password,
+    options: { emailRedirectTo: window.location.origin + window.location.pathname },
+  })
+  if (error) {
+    if (/already registered|already exists/i.test(error.message)) return 'existe'
+    if (/password/i.test(error.message) && /least|short|weak/i.test(error.message)) {
+      throw new Error('La contraseña es demasiado corta o sencilla: usa al menos 6 caracteres.')
+    }
+    throw new Error(errorDeCorreo(error))
+  }
+  if (data.session) return 'dentro'
+  // Supabase no dice que el correo ya existía (para no revelar quién está
+  // registrado), pero lo delata devolviendo un usuario sin identidades.
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) return 'existe'
+  return 'confirmar'
 }
 
 /** Entrada alternativa para quien ya se haya puesto una contraseña. */
@@ -128,7 +199,7 @@ export async function pedirRestablecerPassword(email) {
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: window.location.origin + window.location.pathname,
   })
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(errorDeCorreo(error))
 }
 
 /** Pone o cambia la contraseña de quien ya ha entrado (por enlace o recuperación). */

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { enviarEnlace, entrarConPassword, pedirRestablecerPassword, establecerPassword, useSesion } from '../lib/sesion.js'
+import { enviarEnlace, entrarConPassword, pedirRestablecerPassword, establecerPassword, registrarse, useSesion } from '../lib/sesion.js'
 import { MODO_DEMO } from '../lib/supabase.js'
 import { Portada } from '../components/ui.jsx'
 
@@ -25,9 +25,10 @@ export default function Entrar() {
 }
 
 function FormularioAcceso() {
-  const [modo, setModo] = useState('enlace')   // 'enlace' | 'password'
+  const [modo, setModo] = useState('enlace')   // 'enlace' | 'password' | 'registro'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [repite, setRepite] = useState('')
   const [estado, setEstado] = useState(null)
 
   async function conEnlace(e) {
@@ -53,6 +54,29 @@ function FormularioAcceso() {
     }
   }
 
+  async function conRegistro(e) {
+    e.preventDefault()
+    if (password.length < 6) {
+      return setEstado({ tipo: 'error', txt: 'La contraseña tiene que tener al menos 6 caracteres.' })
+    }
+    if (password !== repite) {
+      return setEstado({ tipo: 'error', txt: 'Las dos contraseñas no coinciden.' })
+    }
+    setEstado({ tipo: 'trabajando', txt: 'Creando tu cuenta…' })
+    try {
+      const r = await registrarse(email.trim(), password)
+      if (r === 'existe') {
+        setModo('password')
+        setEstado({ tipo: 'error', txt: `${email} ya tiene cuenta. Entra con tu contraseña o, si no la recuerdas, pulsa «He olvidado mi contraseña».` })
+      } else if (r === 'confirmar') {
+        setEstado({ tipo: 'ok', txt: `Cuenta creada. Te hemos mandado un correo a ${email} para confirmarla: ábrelo (mira también en spam) y a partir de ahí entra con tu correo y tu contraseña.` })
+      }
+      // 'dentro': useSesion() se entera sola y esta pantalla desaparece.
+    } catch (err) {
+      setEstado({ tipo: 'error', txt: err.message })
+    }
+  }
+
   async function olvidoPassword() {
     if (!email.trim()) {
       return setEstado({ tipo: 'error', txt: 'Escribe primero tu correo, arriba.' })
@@ -71,7 +95,7 @@ function FormularioAcceso() {
       <Portada
         antetitulo="Acceso"
         titular="Entra en la quiniela"
-        entradilla="Con un enlace al correo, o con contraseña si ya te has puesto una."
+        entradilla="Con un enlace al correo, con tu contraseña, o regístrate con correo y contraseña si es la primera vez."
       />
 
       <div style={{ display: 'flex', gap: 4, marginTop: 22, marginBottom: 18 }}>
@@ -85,9 +109,40 @@ function FormularioAcceso() {
                 style={{ flex: 1 }}>
           Contraseña
         </button>
+        <button onClick={() => { setModo('registro'); setEstado(null) }}
+                className={modo === 'registro' ? 'principal' : undefined}
+                style={{ flex: 1 }}>
+          Registrarme
+        </button>
       </div>
 
-      {modo === 'enlace' ? (
+      {modo === 'registro' ? (
+        <form onSubmit={conRegistro} style={{ display: 'grid', gap: 14 }}>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span className="rotulo">Tu correo</span>
+            <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
+                   placeholder="nombre@empresa.com" autoComplete="email" />
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span className="rotulo">Elige una contraseña</span>
+            <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
+                   autoComplete="new-password" minLength={6} />
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span className="rotulo">Repítela</span>
+            <input type="password" required value={repite} onChange={e => setRepite(e.target.value)}
+                   autoComplete="new-password" minLength={6} />
+          </label>
+          <button className="principal" type="submit" disabled={estado?.tipo === 'trabajando'}
+                  style={{ justifySelf: 'start' }}>
+            Crear mi cuenta
+          </button>
+          <p style={{ color: 'var(--tinta-3)', fontSize: 12.5, margin: 0 }}>
+            Usa el correo con el que juegas la quiniela: así tu cuenta se une sola a tu
+            historial. Te llegará un único correo para confirmarla.
+          </p>
+        </form>
+      ) : modo === 'enlace' ? (
         <form onSubmit={conEnlace} style={{ display: 'grid', gap: 14 }}>
           <label style={{ display: 'grid', gap: 6 }}>
             <span className="rotulo">Tu correo</span>
@@ -121,8 +176,8 @@ function FormularioAcceso() {
             </button>
           </div>
           <p style={{ color: 'var(--tinta-3)', fontSize: 12.5, margin: 0 }}>
-            ¿Todavía no te has puesto una? Entra con el enlace al correo y podrás
-            añadirla desde ahí.
+            ¿Todavía no tienes? Pulsa «Registrarme», o entra con el enlace al correo y
+            póntela desde ahí.
           </p>
         </form>
       )}

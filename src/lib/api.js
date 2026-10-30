@@ -8,6 +8,7 @@ import { DEMO, jugadorDemo } from './demo.js'
 import { acumularAciertos } from './evolucion.js'
 import { puestoEn } from './puestos.js'
 import { nombreVisible } from './formato.js'
+import { errorDeCorreo } from './sesion.js'
 import { numeroEnEnlace, esEnlaceCortoDeTiktok, AYUDA_ENLACE_CORTO } from './tiktok.js'
 // Puro JS sin nada de Node, así que se puede importar tal cual en el
 // navegador: es el mismo parser que usa scripts/sync-lae.mjs, para no tener
@@ -634,7 +635,7 @@ export async function enviarEnlaceAcceso(email) {
     email,
     options: { emailRedirectTo: window.location.origin + window.location.pathname },
   })
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(errorDeCorreo(error))
 }
 
 // ---------------------------------------------------------------------------

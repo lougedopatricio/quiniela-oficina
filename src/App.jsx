@@ -107,6 +107,12 @@ export default function App() {
       </nav>
 
       <main className="contenido">
+        {sesion.errorEnlace && !sesion.user && (
+          <div className="aviso aviso-admin" role="alert">
+            <span>{sesion.errorEnlace}</span>
+            <NavLink to="/entrar" className="boton principal">Entrar</NavLink>
+          </div>
+        )}
         {verAdmin && sinFicha.length > 0 && pathname !== '/admin/participantes' && (
           <div className="aviso aviso-admin" role="status">
             <span>
