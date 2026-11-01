@@ -36,8 +36,9 @@ export default function Perfil() {
     // Dos situaciones muy distintas que antes se confundían en un solo mensaje.
     return !id && sesion.user
       ? <Vacio>
-          Tu cuenta ({sesion.user.email}) todavía no está asociada a ningún
-          participante. Pídele al administrador que te dé de alta con ese correo.
+          Tu cuenta ({sesion.user.email}) todavía no está unida a tu ficha de
+          participante. El administrador ya tiene el aviso: en cuanto la una, aquí
+          verás tu historial y podrás jugar.
         </Vacio>
       : <Vacio>Entra con tu correo para ver tu expediente.</Vacio>
   }

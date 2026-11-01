@@ -149,10 +149,11 @@ export async function enviarEnlace(email) {
 /**
  * Registrarse con correo y contraseña, sin depender del enlace para entrar.
  *
- * Supabase pide confirmar el correo la primera vez (un único correo): es lo
- * que impide que alguien se registre con el correo de un compañero y se
- * quede con su ficha, que se enlaza por correo (0008/0012). Confirmado, se
- * entra con la contraseña sin gastar más correos.
+ * Pensado para usarse con «Confirm email» desactivado en Supabase, para no
+ * gastar correos (el de serie deja mandar muy pocos por hora): se entra en
+ * el acto. Como el correo no se ha comprobado, la cuenta NO se enlaza sola
+ * con ninguna ficha (0025): la enlaza el administrador, que recibe aviso. Si
+ * la confirmación siguiera activada, funciona igual pero con un correo.
  *
  * @returns 'dentro' si ya ha entrado (confirmación desactivada en Supabase),
  *          'confirmar' si tiene que abrir el correo, 'existe' si ese correo ya

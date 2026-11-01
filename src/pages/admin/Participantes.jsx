@@ -211,7 +211,7 @@ export default function Participantes() {
         <Seccion
           titulo="Cuentas sin participante"
           nota={huerfanas.length ? `${huerfanas.length} por asignar` : undefined}
-          entradilla="Alguien ha entrado con un correo que no está dado de alta. Su cuenta funciona, pero no juega a nada hasta que la asignes: dale de alta como participante nuevo, o enlázala con una ficha que ya existiera."
+          entradilla="Cuentas que no están unidas a ninguna ficha: alguien que entró con un correo que no estaba dado de alta, o que se registró con contraseña (esas no se unen solas, para que nadie se quede con la ficha de otro). Si su ficha ya existe, sale elegida en «enlazar con»: comprueba que es quien dice y pulsa Enlazar. Si es nuevo, dale de alta."
         >
           {cuentas.cargando ? <Cargando filas={2} />
             : cuentas.error ? <AvisoError error={cuentas.error} />
@@ -456,7 +456,12 @@ function Actividad({ p }) {
  */
 function FilaCuenta({ cuenta, candidatos, alDarDeAlta, alVincular }) {
   const [nombre, setNombre] = useState('')
-  const [destino, setDestino] = useState('')
+  // La ficha con el mismo correo, si la hay, viene ya elegida: es el caso
+  // normal de quien se registra con contraseña, que no se enlaza solo (0025)
+  // para que nadie se quede con la ficha de otro. Basta con comprobar que es
+  // quien dice y pulsar Enlazar.
+  const sugerida = candidatos.find(p => p.email && cuenta.email && p.email.toLowerCase() === cuenta.email.toLowerCase())
+  const [destino, setDestino] = useState(sugerida?.id ?? '')
 
   return (
     <tr>
@@ -484,7 +489,7 @@ function FilaCuenta({ cuenta, candidatos, alDarDeAlta, alVincular }) {
                       style={{ fontSize: 13, padding: '5px 8px' }}>
                 <option value="">Elige a alguien…</option>
                 {candidatos.map(p => (
-                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                  <option key={p.id} value={p.id}>{p.nombre}{p === sugerida ? ' (mismo correo)' : ''}</option>
                 ))}
               </select>
               <button disabled={!destino} style={{ padding: '6px 11px' }}

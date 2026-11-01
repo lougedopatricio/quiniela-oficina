@@ -25,6 +25,7 @@ export async function nuevaBase() {
     create table auth.users (
       id uuid primary key default gen_random_uuid(),
       email text,
+      encrypted_password text,
       created_at timestamptz not null default now(),
       last_sign_in_at timestamptz
     );

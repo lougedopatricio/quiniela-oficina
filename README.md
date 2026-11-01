@@ -143,10 +143,13 @@ oficina hace falta un correo propio:
 4. En **Authentication → URL Configuration**, pon la dirección de la web como
    *Site URL* y añádela (terminada en `**`) a *Redirect URLs*.
 
-Mientras tanto, quien se registre con contraseña solo gasta un correo (el de
-confirmar), y luego entra con ella sin gastar más. **No desactives la
-confirmación del correo**: las cuentas se enlazan con su ficha por correo, y
-sin confirmar cualquiera podría registrarse con el de un compañero.
+Para no depender del correo, el registro con contraseña está pensado para
+usarse **sin confirmación**: en **Authentication → Sign In / Providers →
+Email**, desactiva *Confirm email*. Quien se registra entra en el acto, sin
+ningún correo. Para que eso no permita quedarse con la ficha de otro (las
+cuentas se unen a su ficha por correo), una cuenta con contraseña **no se une
+sola**: sale en «Cuentas sin participante», con aviso y con su ficha ya
+sugerida, y la une el administrador con un clic (0025).
 
 ### 2 · Variables
 

@@ -69,7 +69,7 @@ function FormularioAcceso() {
         setModo('password')
         setEstado({ tipo: 'error', txt: `${email} ya tiene cuenta. Entra con tu contraseña o, si no la recuerdas, pulsa «He olvidado mi contraseña».` })
       } else if (r === 'confirmar') {
-        setEstado({ tipo: 'ok', txt: `Cuenta creada. Te hemos mandado un correo a ${email} para confirmarla: ábrelo (mira también en spam) y a partir de ahí entra con tu correo y tu contraseña.` })
+        setEstado({ tipo: 'ok', txt: `Cuenta creada. Te hemos mandado un correo a ${email} para confirmarla: ábrelo (mira también en spam) y a partir de ahí entra con tu correo y tu contraseña. El administrador la unirá a tu ficha.` })
       }
       // 'dentro': useSesion() se entera sola y esta pantalla desaparece.
     } catch (err) {
@@ -138,8 +138,9 @@ function FormularioAcceso() {
             Crear mi cuenta
           </button>
           <p style={{ color: 'var(--tinta-3)', fontSize: 12.5, margin: 0 }}>
-            Usa el correo con el que juegas la quiniela: así tu cuenta se une sola a tu
-            historial. Te llegará un único correo para confirmarla.
+            Entras en el momento, sin esperar ningún correo. Usa el correo con el que juegas
+            la quiniela: el administrador recibe aviso y une tu cuenta a tu historial (por
+            seguridad, eso no se hace solo). Hasta entonces puedes navegar, pero no jugar.
           </p>
         </form>
       ) : modo === 'enlace' ? (
