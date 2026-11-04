@@ -93,7 +93,7 @@ export default function CaraACara({ partidos, boletos }) {
                 <td className="num">
                   {f.signo
                     ? <span className="signo oficial">{f.signo}</span>
-                    : <span className="signo vacio">·</span>}
+                    : <span className="signo sin-signo">·</span>}
                 </td>
                 <td>
                   <Casilla pick={f.pickB} signo={f.signo} />
@@ -122,7 +122,7 @@ const Selector = ({ opciones, valor, alCambiar, excluir }) => (
 
 /** Un signo de la columna, coloreado solo cuando ya se sabe el resultado. */
 const Casilla = ({ pick, signo }) => {
-  if (pick == null) return <span className="signo vacio">·</span>
+  if (pick == null) return <span className="signo sin-signo">·</span>
   const clase = signo == null ? '' : pick === signo ? 'acierto' : 'fallo'
   return <span className={`signo ${clase}`}>{pick}</span>
 }

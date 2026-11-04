@@ -27,8 +27,16 @@ export default function Jornada() {
   // Los que puntúan esta jornada, que ya no son "los catorce primeros": desde
   // 0013 el 15 puede contar y cualquiera puede quedarse fuera.
   const puntuables = partidos.filter(m => m.modo_puntuacion !== 'no_puntua')
-  const signos = puntuables.map(m => m.signo ?? m.signo_provisional ?? null)
-  const publicados = signos.filter(Boolean).length
+  // Un signo por POSICIÓN de la quiniela (el 1 en la casilla 1…), no por
+  // partido que puntúa: si se saltan los que no puntúan, un aplazado en el 8
+  // corre todas las casillas siguientes y se colorean contra el partido de
+  // al lado. Los que no puntúan quedan sin signo (casilla atenuada).
+  const signos = []
+  for (const m of partidos) {
+    signos[m.orden - 1] = m.modo_puntuacion === 'no_puntua' ? null : (m.signo ?? m.signo_provisional ?? null)
+  }
+  for (let i = 0; i < signos.length; i++) if (signos[i] === undefined) signos[i] = null
+  const publicados = puntuables.filter(m => m.signo ?? m.signo_provisional).length
 
   // Mientras la jornada no está liquidada no hay premio repartido, pero sí hay
   // dinero en juego. Enseñar 0,00 € haría pensar que no se juega nada.
@@ -125,7 +133,7 @@ export default function Jornada() {
                   <tr>
                     <th style={{ width: 34 }}></th>
                     <th>Participante</th>
-                    <th className="num">Aciertos</th>
+                    <th className="num" style={{ paddingRight: 18 }}>Aciertos</th>
                     <th>Columna</th>
                     <th className="num">Premio</th>
                   </tr>
@@ -139,7 +147,7 @@ export default function Jornada() {
                           <Persona nombre={b.nombre} foto={b.avatar_url} />
                         </Link>
                       </td>
-                      <td className="num destaca">
+                      <td className="num destaca" style={{ paddingRight: 18 }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
                           {b.es_ganador && <Ganador />}{b.aciertos}
                         </span>
@@ -199,7 +207,7 @@ export default function Jornada() {
                     {m.modo_puntuacion === 'no_puntua' ? '—'
                       : m.signo ? <span className="signo oficial">{m.signo}</span>
                       : m.signo_provisional ? <span className="signo" title="Provisional">{m.signo_provisional}</span>
-                      : <span className="signo vacio">·</span>}
+                      : <span className="signo sin-signo">·</span>}
                   </td>
                 </tr>
               ))}

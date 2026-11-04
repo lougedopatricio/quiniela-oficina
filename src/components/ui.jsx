@@ -196,8 +196,14 @@ export const TiraSignos = ({ picks = [], signos = [] }) => (
   <div className="tira-signos">
     {picks.slice(0, Math.max(signos.length, 14)).map((p, i) => {
       const s = signos[i]
-      const clase = !s ? 'vacio' : p === s ? 'acierto' : 'fallo'
-      return <span key={i} className={`signo ${clase}`}>{p}</span>
+      const clase = !s ? 'sin-signo' : p === s ? 'acierto' : 'fallo'
+      // El 15 (pleno) un poco separado, como en el boleto.
+      return (
+        <span key={i} className={`signo ${clase}${i === 14 ? ' signo-pleno' : ''}`}
+              title={i === 14 ? 'Pleno al 15' : `Partido ${i + 1}`}>
+          {p === '-' ? '·' : p}
+        </span>
+      )
     })}
   </div>
 )
