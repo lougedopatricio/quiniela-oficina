@@ -8,6 +8,7 @@ const APARTADOS = [
   { a: '/admin/boletos',       txt: 'Boletos' },
   { a: '/admin/caja',          txt: 'Caja' },
   { a: '/admin/importar',      txt: 'Importar Excel' },
+  { a: '/admin/mensajes',      txt: 'Mensajes' },
 ]
 
 /**
