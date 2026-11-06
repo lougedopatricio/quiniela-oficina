@@ -226,8 +226,52 @@ export async function numeroDeTiktok(enlace) {
 
 export async function ponerMemeDeLaJornada(seasonId, tiktokId) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
-  const { error } = await supabase.from('seasons').update({ meme_tiktok_id: tiktokId || null }).eq('id', seasonId)
+  // Un meme cada vez: poner (o quitar) el TikTok quita también la imagen.
+  const { error } = await supabase.from('seasons')
+    .update({ meme_tiktok_id: tiktokId || null, meme_imagen_url: null }).eq('id', seasonId)
   if (error) throw new Error(error.message)
+}
+
+/**
+ * Sube una imagen como meme de la jornada (0026). Se reduce en el navegador
+ * a 1000 píxeles por el lado largo: sale en un lateral, y la foto del móvil
+ * pesaría varios megas para cada persona que abra la portada.
+ */
+export async function subirMemeImagen(seasonId, archivo) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  if (!archivo?.type?.startsWith('image/')) throw new Error('Eso no parece una imagen.')
+  const blob = await reducirImagen(archivo, 1000)
+  const ruta = `meme/${seasonId}.jpg`
+  const { error } = await supabase.storage.from('avatares')
+    .upload(ruta, blob, { upsert: true, contentType: 'image/jpeg', cacheControl: '3600' })
+  if (error) throw new Error(error.message)
+  const { data } = supabase.storage.from('avatares').getPublicUrl(ruta)
+  const url = `${data.publicUrl}?v=${Date.now()}`
+  const { error: e2 } = await supabase.from('seasons')
+    .update({ meme_imagen_url: url, meme_tiktok_id: null }).eq('id', seasonId)
+  if (e2) throw new Error(e2.message)
+  return url
+}
+
+async function reducirImagen(archivo, ladoMax) {
+  const url = URL.createObjectURL(archivo)
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image()
+      i.onload = () => resolve(i)
+      i.onerror = () => reject(new Error('No se ha podido leer la imagen.'))
+      i.src = url
+    })
+    const escala = Math.min(1, ladoMax / Math.max(img.naturalWidth, img.naturalHeight))
+    const lienzo = document.createElement('canvas')
+    lienzo.width = Math.round(img.naturalWidth * escala)
+    lienzo.height = Math.round(img.naturalHeight * escala)
+    lienzo.getContext('2d').drawImage(img, 0, 0, lienzo.width, lienzo.height)
+    return await new Promise((resolve, reject) =>
+      lienzo.toBlob(b => (b ? resolve(b) : reject(new Error('No se ha podido preparar la imagen.'))), 'image/jpeg', 0.86))
+  } finally {
+    URL.revokeObjectURL(url)
+  }
 }
 
 // ---------------------------------------------------------------------------

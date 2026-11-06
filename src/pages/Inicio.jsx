@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Ticket, BarChart3, CalendarDays, PiggyBank, Wallet, UserRound, Trophy, Printer } from 'lucide-react'
-import { getTemporada, getBote, getJornadas, getJornada, getClasificacion, numeroDeTiktok, ponerMemeDeLaJornada } from '../lib/api.js'
+import { getTemporada, getBote, getJornadas, getJornada, getClasificacion, numeroDeTiktok, ponerMemeDeLaJornada, subirMemeImagen } from '../lib/api.js'
 import { useAsync, Cargando, Vacio, AvisoError, Portada, Destacado, Seccion } from '../components/ui.jsx'
 import { euros, cuentaAtras, fechaHora } from '../lib/formato.js'
 import { useSesion } from '../lib/sesion.js'
@@ -159,12 +159,26 @@ export default function Inicio() {
  */
 function MemeDeLaJornada({ season, puedeCambiarlo }) {
   const [id, setId] = useState(season.meme_tiktok_id ?? null)
+  const [imagen, setImagen] = useState(season.meme_imagen_url ?? null)
   const [enlace, setEnlace] = useState('')
   const [aviso, setAviso] = useState(null)
   const [editando, setEditando] = useState(false)
   const [corto, setCorto] = useState(null)
 
-  if (!id && !puedeCambiarlo) return null
+  const hayMeme = !!(imagen || id)
+  if (!hayMeme && !puedeCambiarlo) return null
+
+  async function subirImagen(e) {
+    const archivo = e.target.files?.[0]
+    e.target.value = ''
+    if (!archivo) return
+    setAviso('Subiendo la imagen…')
+    setCorto(null)
+    try {
+      const url = await subirMemeImagen(season.id, archivo)
+      setImagen(url); setId(null); setEditando(false); setAviso(null)
+    } catch (err) { setAviso(err.message) }
+  }
 
   async function guardar(e) {
     e.preventDefault()
@@ -173,7 +187,7 @@ function MemeDeLaJornada({ season, puedeCambiarlo }) {
     try {
       const nuevo = enlace.trim() ? await numeroDeTiktok(enlace) : null
       await ponerMemeDeLaJornada(season.id, nuevo)
-      setId(nuevo); setEnlace(''); setEditando(false); setAviso(null)
+      setId(nuevo); setImagen(null); setEnlace(''); setEditando(false); setAviso(null)
     } catch (err) {
       setAviso(err.message)
       setCorto(err.enlaceCorto ?? null)
@@ -183,7 +197,9 @@ function MemeDeLaJornada({ season, puedeCambiarlo }) {
   return (
     <aside className="meme-jornada">
       <div className="rotulo">Meme de la jornada</div>
-      {id ? (
+      {imagen ? (
+        <img className="meme-jornada-imagen" src={imagen} alt="Meme de la jornada" loading="lazy" />
+      ) : id ? (
         <div className="meme-jornada-video">
           <iframe
             src={`https://www.tiktok.com/player/v1/${id}?description=1&music_info=0&rel=0&native_context_menu=0`}
@@ -194,23 +210,28 @@ function MemeDeLaJornada({ season, puedeCambiarlo }) {
           />
         </div>
       ) : (
-        <div className="meme-jornada-vacio">Todavía no hay meme esta semana. Pega abajo el enlace de un TikTok.</div>
+        <div className="meme-jornada-vacio">Todavía no hay meme esta semana. Sube una imagen o pega el enlace de un TikTok.</div>
       )}
-      {id && (
+      {id && !imagen && (
         <a href={`https://www.tiktok.com/video/${id}`} target="_blank" rel="noreferrer" className="meme-jornada-enlace">
           Verlo en TikTok ↗
         </a>
       )}
-      {puedeCambiarlo && (editando || !id ? (
+      {puedeCambiarlo && (editando || !hayMeme ? (
         <form onSubmit={guardar} style={{ display: 'grid', gap: 6, marginTop: 10 }}>
+          <label className="boton" style={{ textAlign: 'center', cursor: 'pointer', fontSize: 12, padding: '6px 10px' }}>
+            Subir una imagen
+            <input type="file" accept="image/*" onChange={subirImagen} style={{ display: 'none' }} />
+          </label>
+          <span style={{ fontSize: 11.5, color: 'var(--tinta-3)', textAlign: 'center' }}>o pega un TikTok:</span>
           <textarea value={enlace} onChange={e => setEnlace(e.target.value)} rows={2}
                     placeholder="https://www.tiktok.com/@…/video/…" style={{ resize: 'vertical', fontSize: 13 }} />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <button className="principal" type="submit" style={{ padding: '5px 11px' }}
-                    disabled={!enlace.trim() && !id}>
-              {enlace.trim() || !id ? 'Poner este' : 'Quitar el meme'}
+                    disabled={!enlace.trim() && !hayMeme}>
+              {enlace.trim() || !hayMeme ? 'Poner este' : 'Quitar el meme'}
             </button>
-            {id && <button type="button" onClick={() => { setEditando(false); setAviso(null) }} style={{ padding: '5px 11px' }}>Cancelar</button>}
+            {hayMeme && <button type="button" onClick={() => { setEditando(false); setAviso(null) }} style={{ padding: '5px 11px' }}>Cancelar</button>}
           </div>
           <span style={{ fontSize: 11.5, color: 'var(--tinta-3)' }}>
             Pega la dirección completa del vídeo (la que lleva /video/ y un número) o su código de «Insertar». Solo lo ves tú, que eres administrador.
