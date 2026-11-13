@@ -38,7 +38,8 @@ export default function Perfil() {
       ? <Vacio>
           Tu cuenta ({sesion.user.email}) todavía no está unida a tu ficha de
           participante. El administrador ya tiene el aviso: en cuanto la una, aquí
-          verás tu historial y podrás jugar.
+          verás tu historial y podrás jugar.{' '}
+          <Link to="/contrasena">Poner o cambiar tu contraseña</Link>.
         </Vacio>
       : <Vacio>Entra con tu correo para ver tu expediente.</Vacio>
   }
@@ -242,6 +243,11 @@ function EditorPerfil({ jugador, alGuardar }) {
                   style={{ justifySelf: 'start' }}>
             Guardar apodo
           </button>
+          {!MODO_DEMO && (
+            <Link to="/contrasena" style={{ fontSize: 12.5, color: 'var(--tinta-3)' }}>
+              Poner o cambiar tu contraseña
+            </Link>
+          )}
         </form>
       </div>
       {aviso && <div className="aviso" style={{ marginBottom: 12 }}>{aviso.txt}</div>}

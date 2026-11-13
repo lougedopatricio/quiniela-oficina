@@ -6,7 +6,7 @@ import Jornada from './pages/Jornada.jsx'
 import Perfil from './pages/Perfil.jsx'
 import Bote from './pages/Bote.jsx'
 import Saldos from './pages/Saldos.jsx'
-import Entrar from './pages/Entrar.jsx'
+import Entrar, { Contrasena } from './pages/Entrar.jsx'
 import Jugar from './pages/Jugar.jsx'
 import Ranking from './pages/Ranking.jsx'
 import { MODO_DEMO } from './lib/supabase.js'
@@ -66,7 +66,7 @@ export default function App() {
   // lo que sale por la impresora.
   if (pathname.startsWith('/imprimir/')) {
     if (sesion.cargando) return <Cargando filas={4} />
-    if (!verAdmin) return <Navigate to="/entrar" replace />
+    if (!verAdmin) return <Navigate to={sesion.user ? '/' : '/entrar'} replace />
     return (
       <Suspense fallback={<Cargando filas={4} />}>
         <Routes><Route path="/imprimir/:id" element={<ImprimirBoletos />} /></Routes>
@@ -142,10 +142,11 @@ export default function App() {
           <Route path="/perfil"         element={<Perfil />} />
           <Route path="/perfil/:id"     element={<Perfil />} />
           <Route path="/entrar"         element={<Entrar />} />
+          <Route path="/contrasena"     element={<Contrasena />} />
           <Route path="/admin" element={
             verAdmin
               ? <Suspense fallback={<Cargando filas={4} />}><Redaccion /></Suspense>
-              : <Navigate to="/entrar" replace />
+              : sesion.cargando ? <Cargando filas={4} /> : <Navigate to={sesion.user ? '/' : '/entrar'} replace />
           }>
             <Route index element={<Navigate to="/admin/participantes" replace />} />
             <Route path="participantes" element={<Participantes />} />

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { enviarEnlace, entrarConPassword, pedirRestablecerPassword, establecerPassword, registrarse, useSesion } from '../lib/sesion.js'
 import { MODO_DEMO } from '../lib/supabase.js'
 import { Portada } from '../components/ui.jsx'
@@ -18,8 +19,9 @@ export default function Entrar() {
     )
   }
 
-  // Ya ha entrado: aquí se gestiona la contraseña, no se vuelve a pedir acceso.
-  if (sesion.user) return <GestionPassword email={sesion.user.email} />
+  // Ya ha entrado (o acaba de hacerlo): a la portada. La contraseña se
+  // cambia en su propia página, /contrasena, enlazada desde el perfil.
+  if (sesion.user) return <Navigate to="/" replace />
 
   return <FormularioAcceso />
 }
@@ -139,8 +141,8 @@ function FormularioAcceso() {
           </button>
           <p style={{ color: 'var(--tinta-3)', fontSize: 12.5, margin: 0 }}>
             Entras en el momento, sin esperar ningún correo. Usa el correo con el que juegas
-            la quiniela: el administrador recibe aviso y une tu cuenta a tu historial (por
-            seguridad, eso no se hace solo). Hasta entonces puedes navegar, pero no jugar.
+            la quiniela: si el administrador ya lo tiene en tu ficha, tu cuenta se une sola a
+            tu historial; si no, le llega un aviso y la une él.
           </p>
         </form>
       ) : modo === 'enlace' ? (
@@ -188,7 +190,14 @@ function FormularioAcceso() {
   )
 }
 
-/** Para quien ya ha entrado: poner o cambiar su contraseña, no volver a pedir acceso. */
+/** Para quien ya ha entrado: poner o cambiar su contraseña (ruta /contrasena). */
+export function Contrasena() {
+  const sesion = useSesion()
+  if (sesion.cargando) return null
+  if (!sesion.user) return <Navigate to="/entrar" replace />
+  return <GestionPassword email={sesion.user.email} />
+}
+
 function GestionPassword({ email }) {
   const [password, setPassword] = useState('')
   const [repite, setRepite] = useState('')

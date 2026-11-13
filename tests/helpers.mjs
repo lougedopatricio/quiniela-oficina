@@ -27,8 +27,21 @@ export async function nuevaBase() {
       email text,
       encrypted_password text,
       created_at timestamptz not null default now(),
-      last_sign_in_at timestamptz
+      last_sign_in_at timestamptz,
+      instance_id uuid, aud text, role text, email_confirmed_at timestamptz,
+      raw_app_meta_data jsonb, raw_user_meta_data jsonb, updated_at timestamptz,
+      confirmation_token text, recovery_token text, email_change_token_new text, email_change text
     );
+    create table auth.identities (
+      id uuid primary key, user_id uuid not null references auth.users (id),
+      identity_data jsonb, provider text, provider_id text,
+      last_sign_in_at timestamptz, created_at timestamptz, updated_at timestamptz
+    );
+    -- pgcrypto vive en el esquema extensions en Supabase. Aquí basta con algo
+    -- que deje un hash distinto de la contraseña.
+    create schema if not exists extensions;
+    create function extensions.gen_salt(text) returns text language sql as $$ select 'sal' $$;
+    create function extensions.crypt(text, text) returns text language sql as $$ select '$2a$' || md5($1 || $2) $$;
     create or replace function auth.uid() returns uuid language sql stable as $$ select null::uuid $$;
     do $$ begin
       if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon; end if;

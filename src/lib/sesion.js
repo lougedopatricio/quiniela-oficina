@@ -147,20 +147,36 @@ export async function enviarEnlace(email) {
 }
 
 /**
- * Registrarse con correo y contraseña, sin depender del enlace para entrar.
+ * Registrarse con correo y contraseña SIN que Supabase mande ningún correo.
  *
- * Pensado para usarse con «Confirm email» desactivado en Supabase, para no
- * gastar correos (el de serie deja mandar muy pocos por hora): se entra en
- * el acto. Como el correo no se ha comprobado, la cuenta NO se enlaza sola
- * con ninguna ficha (0025): la enlaza el administrador, que recibe aviso. Si
- * la confirmación siguiera activada, funciona igual pero con un correo.
+ * La cuenta la crea la base ya confirmada (`registrar_cuenta`, 0027), así que
+ * da igual cómo esté «Confirm email» en el panel y no se gasta el cupo de
+ * correos. Después se entra con la contraseña, como siempre. Si el correo
+ * coincide con el de una ficha, la base la enlaza sola.
  *
- * @returns 'dentro' si ya ha entrado (confirmación desactivada en Supabase),
- *          'confirmar' si tiene que abrir el correo, 'existe' si ese correo ya
+ * Si la base todavía no tiene 0027, se usa el registro de Supabase de toda la
+ * vida (que sí puede mandar correo).
+ *
+ * @returns 'dentro' si ya ha entrado, 'confirmar' si tiene que abrir el
+ *          correo (solo en el caso de reserva), 'existe' si ese correo ya
  *          tenía cuenta.
  */
 export async function registrarse(email, password) {
   if (MODO_DEMO) throw new Error('En modo demo no hay login.')
+  const { data: r, error: errRpc } = await supabase.rpc('registrar_cuenta', { p_email: email, p_password: password })
+  if (!errRpc) {
+    if (r === 'existe') return 'existe'
+    await entrarConPassword(email, password)
+    return 'dentro'
+  }
+  // Un error de validación de la propia función se enseña tal cual.
+  if (!/registrar_cuenta|PGRST202|schema cache|does not exist/i.test(`${errRpc.code} ${errRpc.message}`)) {
+    throw new Error(errRpc.message)
+  }
+  return registrarseConSupabase(email, password)
+}
+
+async function registrarseConSupabase(email, password) {
   const { data, error } = await supabase.auth.signUp({
     email, password,
     options: { emailRedirectTo: window.location.origin + window.location.pathname },

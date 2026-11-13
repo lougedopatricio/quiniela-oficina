@@ -76,3 +76,56 @@ test('resultados con empate arriba: se reparte y se dice cuánto a cada uno', ()
   assert.match(t, /Ganadores de la semana:\nAna y Bruno con 9 aciertos/)
   assert.match(t, /10 € a repartir entre los 2 ganadores \(5 € cada uno\)/)
 })
+
+// --- Variedad y curiosidades ------------------------------------------------
+
+import { curiosidadesResultados, curiosidadesCierre } from '../src/lib/mensajes.js'
+
+const P = (orden, local, visitante, signo, modo = 'normal') => ({ orden, local, visitante, signo, modo_puntuacion: modo, estado: 'finalizado' })
+const PARTIDOS = [P(1, 'Betis', 'Sevilla', 'X'), P(2, 'Getafe', 'Elche', '1'), P(15, 'Madrid', 'Barça', '2', 'pleno')]
+const COLUMNAS = [
+  { nombre: 'Ana', picks: ['X', '1'], aciertos: 2, es_ganador: true },
+  { nombre: 'Bruno', picks: ['1', '1'], aciertos: 1, es_ganador: false },
+  { nombre: 'Carla', picks: ['2', '1'], aciertos: 1, es_ganador: false },
+]
+
+test('curiosidades de resultados: sorpresa, unanimidad, a uno y media', () => {
+  const c = curiosidadesResultados({ partidos: PARTIDOS, boletos: COLUMNAS }).join('\n')
+  assert.match(c, /Solo Ana acertó el empate del Betis–Sevilla/)
+  assert.match(c, /El Getafe–Elche lo acertó todo el mundo/)
+  assert.match(c, /Bruno y Carla se quedaron a un solo acierto/)
+  assert.match(c, /Media de la oficina: 1,3 aciertos/)
+})
+
+test('curiosidades del cierre: el partido más dividido, el consenso y el pleno', () => {
+  const c = curiosidadesCierre({ partidos: PARTIDOS, boletos: COLUMNAS }).join('\n')
+  assert.match(c, /más divide: Betis–Sevilla \(1 al 1, 1 a la X, 1 al 2\)/)
+  assert.match(c, /Todos van con el 1 en el Getafe–Elche/)
+  assert.match(c, /Pleno al 15: Madrid–Barça/)
+})
+
+test('cada semana cambia la redacción, pero nunca las cifras', () => {
+  const base = { jornada: { numero: 4, cierra_at: null, precio_cents: 100 }, bote: 4550 }
+  const textos = new Set()
+  for (let v = 0; v < 4; v++) {
+    for (const tono of ['clasico', 'breve', 'epico']) {
+      const t = mensajeApertura({ ...base, estilo: { tono, variante: v } })
+      assert.match(t, /45,5 €/)
+      textos.add(t)
+    }
+  }
+  assert.ok(textos.size >= 8, `salen ${textos.size} versiones distintas`)
+  const s4 = mensajeApertura({ ...base, estilo: { tono: 'clasico', variante: 0 } })
+  const s5 = mensajeApertura({ ...base, jornada: { ...base.jornada, numero: 5 }, estilo: { tono: 'clasico', variante: 0 } })
+  assert.notEqual(s4.split('\n')[0] + s4.split('\n').at(-1), s5.split('\n')[0] + s5.split('\n').at(-1), 'dos semanas seguidas no empiezan y acaban igual')
+})
+
+test('resultados breve y sin tabla siguen diciendo ganador, premio y bote', () => {
+  const t = mensajeResultados({
+    jornada: { numero: 7, premio_cents: 900 }, boletos: COLUMNAS, partidos: PARTIDOS, boteDespues: 2000,
+    estilo: { tono: 'breve', variante: 1, tabla: false },
+  })
+  assert.match(t, /Ana \(2\) · 9 € para el ganador/)
+  assert.match(t, /Bote: 20 €/)
+  assert.doesNotMatch(t, /Carla — 1/)
+})
