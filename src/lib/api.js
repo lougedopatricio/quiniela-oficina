@@ -572,6 +572,24 @@ export async function vincularCuenta(playerId, userId) {
   if (error) throw new Error(error.message)
 }
 
+/**
+ * La marca con la que alguien rellena sus casillas (0028). Si la base todavía
+ * no tiene la columna, sale la cruz de siempre en vez de romper «Jugar».
+ */
+export async function getMarca(playerId) {
+  if (MODO_DEMO || !playerId) return null
+  const { data, error } = await supabase.from('players').select('marca').eq('id', playerId).maybeSingle()
+  return error ? null : (data?.marca ?? null)
+}
+
+/** Las marcas de todos, para la pantalla de participantes. Vacío si falta 0028. */
+export async function getMarcas() {
+  if (MODO_DEMO) return {}
+  const { data, error } = await supabase.from('players').select('id, marca')
+  if (error) return {}
+  return Object.fromEntries(data.map(p => [p.id, p.marca]))
+}
+
 export async function actualizarParticipante(id, campos) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
   const { error } = await supabase.from('players').update(campos).eq('id', id)

@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom'
 import { Mail, Trash2, Plus, Check, X } from 'lucide-react'
 import {
   getParticipantes, crearParticipante, actualizarParticipante,
-  borrarParticipante, enviarEnlaceAcceso, getCuentasSinFicha, vincularCuenta,
+  borrarParticipante, enviarEnlaceAcceso, getCuentasSinFicha, vincularCuenta, getMarcas,
 } from '../../lib/api.js'
+import Casilla, { DibujoMarca } from '../../components/Casilla.jsx'
+import { MARCAS, MARCA_POR_DEFECTO } from '../../lib/marcas.js'
 import {
   useAsync, Cargando, AvisoError, Portada, Seccion, Dinero, Avatar, Destacado, Vacio,
 } from '../../components/ui.jsx'
@@ -403,6 +405,8 @@ export default function Participantes() {
         )}
       </Seccion>
 
+      <MarcasDeCasilla jugadores={datos} recarga={recarga} />
+
       <Seccion titulo="Sobre el acceso">
         <p className="entradilla" style={{ marginTop: 12 }}>
           Se entra con un enlace que llega al correo. Quien quiera puede ponerse además
@@ -501,5 +505,63 @@ function FilaCuenta({ cuenta, candidatos, alDarDeAlta, alVincular }) {
         </div>
       </td>
     </tr>
+  )
+}
+
+/**
+ * Cómo rellena cada uno sus casillas en «Jugar» (0028). Se guarda al elegir,
+ * sin botón: es un detalle visual y no merece un paso más.
+ */
+function MarcasDeCasilla({ jugadores, recarga }) {
+  const marcas = useAsync(getMarcas, [recarga])
+  const [propias, setPropias] = useState({})
+  const [aviso, setAviso] = useState(null)
+  const activos = jugadores.filter(j => j.activo)
+  const marcaDe = (id) => propias[id] ?? marcas.datos?.[id] ?? MARCA_POR_DEFECTO
+
+  async function elegir(j, marca) {
+    const antes = marcaDe(j.id)
+    setPropias(p => ({ ...p, [j.id]: marca }))
+    try {
+      await actualizarParticipante(j.id, { marca: marca === MARCA_POR_DEFECTO ? null : marca })
+      setAviso(null)
+    } catch (e) {
+      setPropias(p => ({ ...p, [j.id]: antes }))
+      setAviso(/marca/.test(e.message) && /column|columna|schema/i.test(e.message)
+        ? 'Falta ejecutar en Supabase la migración 0028 (marca de la casilla).'
+        : e.message)
+    }
+  }
+
+  return (
+    <Seccion titulo="Cómo marca cada uno"
+             entradilla="La forma con la que cada participante rellena sus casillas al jugar, como en el boleto de papel. Se guarda en cuanto la eliges.">
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', padding: '14px 0 6px' }}>
+        {MARCAS.map(m => (
+          <div key={m.id} style={{ display: 'grid', justifyItems: 'center', gap: 4, width: 64 }}>
+            <Casilla texto="1" marcada marca={m.id} clave={m.id} titulo={m.txt} />
+            <span style={{ fontSize: 11, color: 'var(--tinta-3)', textAlign: 'center', lineHeight: 1.2 }}>{m.txt}</span>
+          </div>
+        ))}
+      </div>
+      {aviso && <div className="aviso" style={{ marginTop: 8 }}>{aviso}</div>}
+      <div style={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', padding: '12px 0' }}>
+        {activos.map(j => (
+          <label key={j.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid var(--regla)' }}>
+            <Avatar nombre={j.nombre} foto={j.avatar_url} tamano={26} />
+            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {nombreVisible(j)}
+            </span>
+            <span style={{ width: 26, height: 26, display: 'inline-block' }}>
+              <DibujoMarca key={marcaDe(j.id)} marca={marcaDe(j.id)} tamano={26} />
+            </span>
+            <select value={marcaDe(j.id)} disabled={MODO_DEMO} onChange={e => elegir(j, e.target.value)}
+                    aria-label={`Marca de ${nombreVisible(j)}`}>
+              {MARCAS.map(m => <option key={m.id} value={m.id}>{m.txt}</option>)}
+            </select>
+          </label>
+        ))}
+      </div>
+    </Seccion>
   )
 }

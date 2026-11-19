@@ -576,3 +576,43 @@ select:focus, input:focus, textarea:focus { outline: 2px solid var(--rojo); outl
   vertical-align: 1px;
 }
 .aviso-admin { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 20px; }
+
+/* ---------------------------------------------------------------------------
+   Casillas del boleto (Jugar): el signo impreso y la marca a boli encima.
+   --------------------------------------------------------------------------- */
+:root { --boli: #1f3b9a; }
+.casilla-boleto {
+  position: relative;
+  width: 38px; height: 34px; padding: 0;
+  display: inline-grid; place-items: center;
+  background: #fff;
+  border: 1.5px solid #d9a99f;
+  border-radius: 2px;
+  color: #c0796b;
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  text-transform: none; letter-spacing: 0;
+  cursor: pointer;
+}
+.casilla-boleto.oro { border-color: #d8c08a; color: #b4975a; }
+.casilla-boleto:hover:not(:disabled) { border-color: var(--boli); background: #f7f8ff; color: #c0796b; }
+.casilla-boleto.oro:hover:not(:disabled) { color: #b4975a; }
+.casilla-boleto:disabled { cursor: default; opacity: .8; }
+.casilla-boleto .impreso { position: relative; z-index: 0; }
+.casilla-boleto .marca-boli { position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); z-index: 1; pointer-events: none; }
+.marca-boli { overflow: visible; }
+.marca-boli .trazo {
+  fill: none; stroke: var(--boli); stroke-width: 3.2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.marca-boli .mancha { fill: var(--boli); opacity: .9; }
+.marca-boli.animada .trazo {
+  stroke-dasharray: 1; stroke-dashoffset: 1;
+  animation: trazo-boli .32s ease-out forwards;
+}
+.marca-boli.animada .mancha { opacity: 0; animation: mancha-boli .25s ease-out .1s forwards; }
+@keyframes trazo-boli { to { stroke-dashoffset: 0; } }
+@keyframes mancha-boli { to { opacity: .9; } }
+@media (prefers-reduced-motion: reduce) {
+  .marca-boli.animada .trazo { animation: none; stroke-dashoffset: 0; }
+  .marca-boli.animada .mancha { animation: none; opacity: .9; }
+}

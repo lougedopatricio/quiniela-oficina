@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getJornadaJugable, jugarMiBoleto } from '../lib/api.js'
+import { getJornadaJugable, jugarMiBoleto, getMarca } from '../lib/api.js'
+import Casilla from '../components/Casilla.jsx'
 import { MODO_DEMO } from '../lib/supabase.js'
 import { useSesion } from '../lib/sesion.js'
 import { jugadorDemo } from '../lib/demo.js'
@@ -32,6 +33,8 @@ export default function Jugar() {
     () => (playerId ? getJornadaJugable(playerId) : Promise.resolve(null)),
     [playerId, recarga]
   )
+  // Cómo marca sus casillas (la elige el administrador; sin ella, la cruz).
+  const { datos: marca } = useAsync(() => getMarca(playerId), [playerId])
 
   if (sesion.cargando) return <Cargando filas={6} />
   if (!playerId) {
@@ -152,18 +155,12 @@ export default function Jugar() {
                       {noPuntua ? <span style={{ color: 'var(--tinta-3)', fontSize: 12.5 }}>—</span>
                         : esPleno ? <span style={{ color: 'var(--tinta-3)', fontSize: 12.5 }}>Abajo</span>
                         : (
-                          <div style={{ display: 'flex', gap: 3 }}>
+                          <div style={{ display: 'flex', gap: 4 }}>
                             {SIGNOS.map(s => (
-                              <button key={s} type="button" disabled={cerrado}
-                                      onClick={() => marcar(m.orden, s)}
-                                      style={{
-                                        padding: '5px 11px',
-                                        background: columna.picks[m.orden - 1] === s ? 'var(--tinta)' : 'transparent',
-                                        color: columna.picks[m.orden - 1] === s ? 'var(--papel)' : 'var(--tinta-3)',
-                                        borderColor: columna.picks[m.orden - 1] === s ? 'var(--tinta)' : 'var(--regla)',
-                                      }}>
-                                {s}
-                              </button>
+                              <Casilla key={s} texto={s} disabled={cerrado} marca={marca}
+                                       marcada={columna.picks[m.orden - 1] === s}
+                                       clave={`${m.orden}${s}`}
+                                       onClick={() => marcar(m.orden, s)} />
                             ))}
                           </div>
                         )}
@@ -184,18 +181,11 @@ export default function Jugar() {
             {[['pleno_local', pleno.local], ['pleno_visitante', pleno.visitante]].map(([campo, nombre]) => (
               <div key={campo} style={{ display: 'grid', gap: 6 }}>
                 <span className="rotulo">{nombre}</span>
-                <div style={{ display: 'flex', gap: 3 }}>
+                <div style={{ display: 'flex', gap: 4 }}>
                   {GOLES.map(g => (
-                    <button key={g} type="button" disabled={cerrado}
-                            onClick={() => editar(c => ({ [campo]: c[campo] === g ? '' : g }))}
-                            style={{
-                              padding: '6px 12px',
-                              background: columna[campo] === g ? 'var(--oro)' : 'transparent',
-                              color: columna[campo] === g ? '#fff' : 'var(--tinta-3)',
-                              borderColor: columna[campo] === g ? 'var(--oro)' : 'var(--regla)',
-                            }}>
-                      {g}
-                    </button>
+                    <Casilla key={g} texto={g} oro disabled={cerrado} marca={marca}
+                             marcada={columna[campo] === g} clave={`${campo}${g}`}
+                             onClick={() => editar(c => ({ [campo]: c[campo] === g ? '' : g }))} />
                   ))}
                 </div>
               </div>
