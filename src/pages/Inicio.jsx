@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Ticket, BarChart3, CalendarDays, PiggyBank, Wallet, UserRound, Trophy, Printer } from 'lucide-react'
-import { getTemporada, getBote, getJornadas, getJornada, getClasificacion, numeroDeTiktok, ponerMemeDeLaJornada, subirMemeImagen } from '../lib/api.js'
+import { getTemporada, getBote, getJornadas, getJornada, getClasificacion, numeroDeTiktok, ponerMemeDeLaJornada, ponerMemeDeYoutube, subirMemeImagen } from '../lib/api.js'
+import { videoDeYoutube, esEnlaceDeYoutube } from '../lib/youtube.js'
 import { useAsync, Cargando, Vacio, AvisoError, Portada, Destacado, Seccion } from '../components/ui.jsx'
 import { euros, cuentaAtras, fechaHora } from '../lib/formato.js'
 import { useSesion } from '../lib/sesion.js'
@@ -152,7 +153,8 @@ export default function Inicio() {
 }
 
 /**
- * El vídeo de TikTok de la semana, con el reproductor oficial de TikTok: el
+ * El meme de la semana: una imagen, un TikTok o un vídeo de YouTube (0029).
+ * Los vídeos van con el reproductor oficial de cada sitio: el
  * vídeo se ve desde allí, no se copia. Solo se guarda su número (0024), y la
  * dirección del reproductor la monta esta página, así que no se puede colar
  * otra web. El administrador lo cambia aquí mismo.
@@ -160,12 +162,15 @@ export default function Inicio() {
 function MemeDeLaJornada({ season, puedeCambiarlo }) {
   const [id, setId] = useState(season.meme_tiktok_id ?? null)
   const [imagen, setImagen] = useState(season.meme_imagen_url ?? null)
+  const [youtube, setYoutube] = useState(
+    season.meme_youtube_id ? { id: season.meme_youtube_id, vertical: !!season.meme_youtube_vertical } : null
+  )
   const [enlace, setEnlace] = useState('')
   const [aviso, setAviso] = useState(null)
   const [editando, setEditando] = useState(false)
   const [corto, setCorto] = useState(null)
 
-  const hayMeme = !!(imagen || id)
+  const hayMeme = !!(imagen || id || youtube)
   if (!hayMeme && !puedeCambiarlo) return null
 
   async function subirImagen(e) {
@@ -176,7 +181,7 @@ function MemeDeLaJornada({ season, puedeCambiarlo }) {
     setCorto(null)
     try {
       const url = await subirMemeImagen(season.id, archivo)
-      setImagen(url); setId(null); setEditando(false); setAviso(null)
+      setImagen(url); setId(null); setYoutube(null); setEditando(false); setAviso(null)
     } catch (err) { setAviso(err.message) }
   }
 
@@ -185,9 +190,16 @@ function MemeDeLaJornada({ season, puedeCambiarlo }) {
     setAviso('Buscando el vídeo…')
     setCorto(null)
     try {
+      if (esEnlaceDeYoutube(enlace)) {
+        const video = videoDeYoutube(enlace)
+        if (!video) throw new Error('Ese enlace de YouTube no lleva a un vídeo. Pega el de «Compartir» del vídeo (youtu.be/…) o la dirección que sale al verlo.')
+        await ponerMemeDeYoutube(season.id, video)
+        setYoutube(video); setId(null); setImagen(null); setEnlace(''); setEditando(false); setAviso(null)
+        return
+      }
       const nuevo = enlace.trim() ? await numeroDeTiktok(enlace) : null
       await ponerMemeDeLaJornada(season.id, nuevo)
-      setId(nuevo); setImagen(null); setEnlace(''); setEditando(false); setAviso(null)
+      setId(nuevo); setImagen(null); setYoutube(null); setEnlace(''); setEditando(false); setAviso(null)
     } catch (err) {
       setAviso(err.message)
       setCorto(err.enlaceCorto ?? null)
@@ -199,6 +211,17 @@ function MemeDeLaJornada({ season, puedeCambiarlo }) {
       <div className="rotulo">Meme de la jornada</div>
       {imagen ? (
         <img className="meme-jornada-imagen" src={imagen} alt="Meme de la jornada" loading="lazy" />
+      ) : youtube ? (
+        <div className={`meme-jornada-video${youtube.vertical ? '' : ' apaisado'}`}>
+          <iframe
+            src={`https://www.youtube-nocookie.com/embed/${youtube.id}?rel=0&playsinline=1`}
+            title="Meme de la jornada (YouTube)"
+            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        </div>
       ) : id ? (
         <div className="meme-jornada-video">
           <iframe
@@ -210,9 +233,15 @@ function MemeDeLaJornada({ season, puedeCambiarlo }) {
           />
         </div>
       ) : (
-        <div className="meme-jornada-vacio">Todavía no hay meme esta semana. Sube una imagen o pega el enlace de un TikTok.</div>
+        <div className="meme-jornada-vacio">Todavía no hay meme esta semana. Sube una imagen o pega el enlace de un TikTok o de YouTube.</div>
       )}
-      {id && !imagen && (
+      {youtube && !imagen && (
+        <a href={youtube.vertical ? `https://www.youtube.com/shorts/${youtube.id}` : `https://www.youtube.com/watch?v=${youtube.id}`}
+           target="_blank" rel="noreferrer" className="meme-jornada-enlace">
+          Verlo en YouTube ↗
+        </a>
+      )}
+      {id && !imagen && !youtube && (
         <a href={`https://www.tiktok.com/video/${id}`} target="_blank" rel="noreferrer" className="meme-jornada-enlace">
           Verlo en TikTok ↗
         </a>
@@ -223,9 +252,9 @@ function MemeDeLaJornada({ season, puedeCambiarlo }) {
             Subir una imagen
             <input type="file" accept="image/*" onChange={subirImagen} style={{ display: 'none' }} />
           </label>
-          <span style={{ fontSize: 11.5, color: 'var(--tinta-3)', textAlign: 'center' }}>o pega un TikTok:</span>
+          <span style={{ fontSize: 11.5, color: 'var(--tinta-3)', textAlign: 'center' }}>o pega un TikTok o un YouTube:</span>
           <textarea value={enlace} onChange={e => setEnlace(e.target.value)} rows={2}
-                    placeholder="https://www.tiktok.com/@…/video/…" style={{ resize: 'vertical', fontSize: 13 }} />
+                    placeholder="https://www.tiktok.com/@…/video/…  o  https://youtu.be/…" style={{ resize: 'vertical', fontSize: 13 }} />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <button className="principal" type="submit" style={{ padding: '5px 11px' }}
                     disabled={!enlace.trim() && !hayMeme}>
@@ -234,7 +263,7 @@ function MemeDeLaJornada({ season, puedeCambiarlo }) {
             {hayMeme && <button type="button" onClick={() => { setEditando(false); setAviso(null) }} style={{ padding: '5px 11px' }}>Cancelar</button>}
           </div>
           <span style={{ fontSize: 11.5, color: 'var(--tinta-3)' }}>
-            Pega la dirección completa del vídeo (la que lleva /video/ y un número) o su código de «Insertar». Solo lo ves tú, que eres administrador.
+            TikTok: la dirección completa del vídeo (la que lleva /video/ y un número) o su código de «Insertar». YouTube: cualquier enlace del vídeo, también los Shorts. Solo lo ves tú, que eres administrador.
           </span>
         </form>
       ) : (

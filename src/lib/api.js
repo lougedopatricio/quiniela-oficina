@@ -224,12 +224,33 @@ export async function numeroDeTiktok(enlace) {
   throw new Error('Eso no parece un enlace de TikTok.')
 }
 
+// Un meme cada vez: al poner uno se vacían los otros. Si la base aún no
+// tiene las columnas de YouTube (0029), se guarda sin ellas para que el
+// TikTok y la imagen sigan funcionando igual que antes.
+const SIN_MEME = { meme_tiktok_id: null, meme_imagen_url: null, meme_youtube_id: null, meme_youtube_vertical: false }
+async function guardarMeme(seasonId, campos) {
+  let { error } = await supabase.from('seasons').update({ ...SIN_MEME, ...campos }).eq('id', seasonId)
+  if (error && /meme_youtube/.test(error.message) && !campos.meme_youtube_id) {
+    const { meme_youtube_id: _a, meme_youtube_vertical: _b, ...sinYoutube } = { ...SIN_MEME, ...campos }
+    ;({ error } = await supabase.from('seasons').update(sinYoutube).eq('id', seasonId))
+  }
+  if (error) {
+    throw new Error(/meme_youtube/.test(error.message)
+      ? 'Falta ejecutar en Supabase la migración 0029 (meme de YouTube).'
+      : error.message)
+  }
+}
+
+/** Pone (o quita, con null) el TikTok de la semana. */
 export async function ponerMemeDeLaJornada(seasonId, tiktokId) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
-  // Un meme cada vez: poner (o quitar) el TikTok quita también la imagen.
-  const { error } = await supabase.from('seasons')
-    .update({ meme_tiktok_id: tiktokId || null, meme_imagen_url: null }).eq('id', seasonId)
-  if (error) throw new Error(error.message)
+  await guardarMeme(seasonId, { meme_tiktok_id: tiktokId || null })
+}
+
+/** Pone un vídeo de YouTube como meme de la jornada (0029). */
+export async function ponerMemeDeYoutube(seasonId, { id, vertical }) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  await guardarMeme(seasonId, { meme_youtube_id: id, meme_youtube_vertical: !!vertical })
 }
 
 /**
@@ -247,9 +268,7 @@ export async function subirMemeImagen(seasonId, archivo) {
   if (error) throw new Error(error.message)
   const { data } = supabase.storage.from('avatares').getPublicUrl(ruta)
   const url = `${data.publicUrl}?v=${Date.now()}`
-  const { error: e2 } = await supabase.from('seasons')
-    .update({ meme_imagen_url: url, meme_tiktok_id: null }).eq('id', seasonId)
-  if (e2) throw new Error(e2.message)
+  await guardarMeme(seasonId, { meme_imagen_url: url })
   return url
 }
 
