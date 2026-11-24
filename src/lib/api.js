@@ -584,6 +584,64 @@ export async function getCuentasSinFicha() {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Cuentas (0030): verlas todas, cambiar la contraseña, unirlas con su perfil
+// y crearlas, sin pasar por el SQL Editor.
+// ---------------------------------------------------------------------------
+
+// Si la base todavía no tiene 0030, se dice qué falta en vez del error crudo.
+function errorDeCuentas(error) {
+  const m = String(error?.message ?? '')
+  if (/v_cuentas|admin_(cambiar_contrasena|enlazar_cuenta|crear_cuenta)|PGRST202|schema cache/i.test(`${error?.code} ${m}`)) {
+    return new Error('Falta ejecutar en Supabase la migración 0030 (cuentas desde la web).')
+  }
+  return new Error(m)
+}
+
+/** Todas las cuentas, con su perfil si lo tienen. Las más recientes primero. */
+export async function getCuentas() {
+  if (MODO_DEMO) {
+    const ahora = Date.now()
+    return ok([
+      ...DEMO.jugadores.slice(0, 5).map((j, i) => ({
+        user_id: `demo-${j.id}`, email: `${j.alias}@ejemplo.com`,
+        created_at: new Date(ahora - (40 - i) * 864e5).toISOString(),
+        last_sign_in_at: new Date(ahora - (i * 2 + 1) * 36e5 * 7).toISOString(),
+        confirmada: true, con_contrasena: i % 2 === 0,
+        player_id: j.id, player_nombre: j.nombre, player_alias: j.alias, player_apodo: j.apodo ?? null,
+        player_con_permisos: j.id === 'p1' || j.id === 'p2',
+      })),
+      { user_id: 'demo-huerfana', email: 'alguien@empresa.com',
+        created_at: new Date(ahora - 3 * 864e5).toISOString(), last_sign_in_at: new Date(ahora - 864e5).toISOString(),
+        confirmada: true, con_contrasena: true, player_id: null, player_nombre: null, player_alias: null,
+        player_apodo: null, player_con_permisos: false },
+    ])
+  }
+  const { data, error } = await supabase.from('v_cuentas').select('*').order('created_at', { ascending: false })
+  if (error) throw errorDeCuentas(error)
+  return data
+}
+
+export async function cambiarContrasenaDe(userId, password) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const { error } = await supabase.rpc('admin_cambiar_contrasena', { p_user: userId, p_password: password })
+  if (error) throw errorDeCuentas(error)
+}
+
+/** Une la cuenta con el perfil, o la suelta si `playerId` es null. */
+export async function enlazarCuentaConPerfil(userId, playerId) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const { error } = await supabase.rpc('admin_enlazar_cuenta', { p_user: userId, p_player: playerId })
+  if (error) throw errorDeCuentas(error)
+}
+
+/** Crea una cuenta ya confirmada (sin correo) y, si se dice, la une al perfil. */
+export async function crearCuentaDesdeAdmin({ email, password, playerId = null }) {
+  if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')
+  const { error } = await supabase.rpc('admin_crear_cuenta', { p_email: email, p_password: password, p_player: playerId })
+  if (error) throw errorDeCuentas(error)
+}
+
 /** Ata una cuenta ya registrada a una ficha que existía sin ella. */
 export async function vincularCuenta(playerId, userId) {
   if (MODO_DEMO) throw new Error('El modo demo no escribe en ninguna base de datos.')

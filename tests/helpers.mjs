@@ -30,7 +30,8 @@ export async function nuevaBase() {
       last_sign_in_at timestamptz,
       instance_id uuid, aud text, role text, email_confirmed_at timestamptz,
       raw_app_meta_data jsonb, raw_user_meta_data jsonb, updated_at timestamptz,
-      confirmation_token text, recovery_token text, email_change_token_new text, email_change text
+      confirmation_token text, recovery_token text, email_change_token_new text, email_change text,
+      banned_until timestamptz
     );
     create table auth.identities (
       id uuid primary key, user_id uuid not null references auth.users (id),

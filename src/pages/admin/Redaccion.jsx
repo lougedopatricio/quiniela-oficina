@@ -3,6 +3,7 @@ import { useCuentasSinFicha } from '../../lib/avisos.js'
 
 const APARTADOS = [
   { a: '/admin/participantes', txt: 'Participantes' },
+  { a: '/admin/cuentas',       txt: 'Cuentas' },
   { a: '/admin/crear',         txt: 'Crear quiniela' },
   { a: '/admin/jornadas',      txt: 'Jornadas' },
   { a: '/admin/boletos',       txt: 'Boletos' },
